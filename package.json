@@ -1,6 +1,6 @@
 {
   "name": "enigma-hub-frontend",
-  "version": "0.9.9",
+  "version": "1.0.0",
   "description": "Enigma Hub Frontend (Electron + Vite App)",
   "author": "Echo Jsatfield",
   "main": "src/main/main.js",
@@ -41,12 +41,12 @@
       "icon": "src/assets/icon.ico"
     },
     "asar": true,
-"publish": {
-  "provider": "github",
-  "owner": "Echo-Jsatfield",
-  "repo": "enigma-hub-betaprogram",
-  "private": true
-}
+    "publish": {
+      "provider": "github",
+      "owner": "Echo-Jsatfield",
+      "repo": "enigma-hub-betaprogram",
+      "private": true
+    }
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.0",
