@@ -953,15 +953,29 @@ ipcMain.handle('push-release', async (event, { version, releaseNotes }) => {
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     console.log('[PushRelease] Updated version to:', version);
 
+    // Get current branch name
+    const { stdout: branchName } = await execAsync('git branch --show-current');
+    const branch = branchName.trim();
+    console.log('[PushRelease] Current branch:', branch);
+
     // Git commit + tag + push
     await execAsync('git add .');
     await execAsync(`git commit -m "Release v${version}"`);
     await execAsync(`git tag -a v${version} -m "${releaseNotes.replace(/"/g, '\\"')}"`);
-    await execAsync('git push');
+    
+    // Push with upstream setup (handles first push)
+    try {
+      await execAsync('git push');
+    } catch (err) {
+      // If push fails due to no upstream, set it up
+      console.log('[PushRelease] Setting up upstream branch...');
+      await execAsync(`git push --set-upstream origin ${branch}`);
+    }
+    
     await execAsync(`git push origin v${version}`);
-    console.log('[PushRelease] Pushed tag v${version}');
+    console.log('[PushRelease] Pushed tag v' + version);
 
-    // Build and publish (will auto-publish with releaseType: "release")
+    // Build and publish
     console.log('[PushRelease] Building and publishing to GitHub...');
     await execAsync('npm run publish');
     console.log('[PushRelease] ✅ Published to GitHub and marked as latest release');
