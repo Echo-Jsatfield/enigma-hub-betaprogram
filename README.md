@@ -6,7 +6,7 @@
 This is the official **beta channel** for distributing production builds of the Enigma plugin and desktop client.
 
 > ⚠️ No source code will be published.  
-> Auto-update system is active from version 1.0.4 onward.
+> Auto-update system is active from version 1.0.3 onward.
 
 ---
 
