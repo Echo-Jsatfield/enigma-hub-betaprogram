@@ -1,0 +1,1153 @@
+// ============================================
+// ENIGMA HUB - ELECTRON MAIN PROCESS
+// WITH REACT FIRST-RUN WIZARD + CUSTOM UPDATER
+// ============================================
+
+import { app, BrowserWindow, ipcMain, dialog, globalShortcut } from 'electron';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import fs from 'fs';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import https from 'https';
+import { startTelemetryServer, stopTelemetryServer, setCurrentUser } from './telemetry-server.js';
+import { getGamePaths, saveGamePaths } from './game-paths.js';
+import pkg from 'electron-updater';
+import { createOverlay, toggleOverlay, sendToOverlay } from './overlay-manager.js';
+const { autoUpdater } = pkg;
+
+// Configure auto-updater
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+const GITHUB_OWNER = 'Echo-Jsatfield';
+const GITHUB_REPO = 'enigma-hub-betaprogram';
+const UPDATE_CHECK_INTERVAL = 1000 * 60 * 60 * 2; // 2 hours
+
+const execAsync = promisify(exec);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// ============================================
+// UPDATE CLEANUP
+// ============================================
+
+// Clean up old update files (older than 7 days)
+function cleanupOldUpdates() {
+  try {
+    const updatesDir = join(app.getPath('userData'), 'updates');
+    if (!fs.existsSync(updatesDir)) return;
+    
+    const files = fs.readdirSync(updatesDir);
+    const now = Date.now();
+    const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+    
+    let cleaned = 0;
+    files.forEach(file => {
+      if (file.endsWith('.exe') || file.endsWith('.bat')) {
+        const filePath = join(updatesDir, file);
+        try {
+          const stats = fs.statSync(filePath);
+          const age = now - stats.mtimeMs;
+          
+          if (age > maxAge) {
+            console.log('[CustomUpdater] Cleaning up old file:', file);
+            fs.unlinkSync(filePath);
+            cleaned++;
+          }
+        } catch (err) {
+          console.error('[CustomUpdater] Failed to clean file:', file, err);
+        }
+      }
+    });
+    
+    if (cleaned > 0) {
+      console.log(`[CustomUpdater] Cleaned ${cleaned} old update file(s)`);
+    }
+  } catch (error) {
+    console.error('[CustomUpdater] Cleanup error:', error);
+  }
+}
+
+
+// ============================================
+// EARLY LOGGING SETUP
+// ============================================
+
+const logPath = join(app.getPath('userData'), 'app.log');
+let logStream;
+
+const logDir = dirname(logPath);
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+
+logStream = fs.createWriteStream(logPath, { flags: 'a' });
+
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = (...args) => {
+  originalLog(...args);
+  if (logStream) {
+    const msg = args.join(' ');
+    logStream.write(`[LOG] ${new Date().toISOString()} ${msg}\n`);
+  }
+};
+
+console.error = (...args) => {
+  originalError(...args);
+  if (logStream) {
+    const msg = args.join(' ');
+    logStream.write(`[ERROR] ${new Date().toISOString()} ${msg}\n`);
+  }
+};
+
+console.log('===========================================');
+console.log('ENIGMA HUB STARTING');
+console.log(`Log file: ${logPath}`);
+console.log('===========================================');
+
+// ============================================
+// ENVIRONMENT DETECTION
+// ============================================
+
+const isDev = !app.isPackaged;
+
+console.log(`Environment: ${isDev ? 'DEVELOPMENT' : 'PRODUCTION'}`);
+console.log(`Packaged: ${app.isPackaged}`);
+console.log(`__dirname: ${__dirname}`);
+
+// ============================================
+// MAIN WINDOW
+// ============================================
+
+let mainWindow;
+
+// ============================================
+// PATH RESOLUTION
+// ============================================
+
+function getPreloadPath() {
+  if (isDev) {
+    return join(__dirname, 'preload.cjs');
+  }
+  return join(__dirname, 'preload.cjs');
+}
+
+function getHTMLPath() {
+  if (isDev && process.env.VITE_DEV_SERVER_URL) {
+    return process.env.VITE_DEV_SERVER_URL;
+  }
+
+  if (app.isPackaged) {
+    return join(__dirname, '../../dist/index.html');
+  }
+
+  return join(__dirname, '../../dist/index.html');
+}
+
+// ============================================
+// FIRST RUN CHECK
+// ============================================
+
+function isFirstRun() {
+  const paths = getGamePaths();
+  return !paths.ets2 || !paths.ats;
+}
+
+// ============================================
+// PLUGIN INSTALLATION
+// ============================================
+
+function installGamePlugins(ets2Path, atsPath) {
+  try {
+    let pluginSource;
+
+    if (app.isPackaged) {
+      pluginSource = join(process.resourcesPath, 'app.asar.unpacked', 'src', 'telemetry');
+    } else {
+      pluginSource = join(process.cwd(), 'src', 'telemetry');
+    }
+
+    console.log('[PluginInstall] Plugin source:', pluginSource);
+
+    // Verify source exists
+    if (!fs.existsSync(pluginSource)) {
+      console.error('[PluginInstall] Plugin source not found!');
+      return false;
+    }
+
+    // Only need the core plugin now
+    const corePlugin = join(pluginSource, 'enigma_telemetry_core.dll');
+
+    if (!fs.existsSync(corePlugin)) {
+      console.error('[PluginInstall] Core plugin DLL not found!');
+      return false;
+    }
+
+    console.log('[PluginInstall] Found core plugin');
+
+    // Install ETS2
+    if (ets2Path) {
+      const ets2Plugins = join(ets2Path, 'bin', 'win_x64', 'plugins');
+
+      // Ensure plugins directory exists
+      if (!fs.existsSync(ets2Plugins)) {
+        fs.mkdirSync(ets2Plugins, { recursive: true });
+      }
+
+      // Copy core plugin directly to plugins/ (no nested folder)
+      fs.copyFileSync(corePlugin, join(ets2Plugins, 'enigma_telemetry_core.dll'));
+
+      // Clean up old files if they exist
+      const oldScsPlugin = join(ets2Plugins, 'scs-telemetry.dll');
+      const oldEnigmaFolder = join(ets2Plugins, 'enigma');
+
+      if (fs.existsSync(oldScsPlugin)) {
+        fs.unlinkSync(oldScsPlugin);
+        console.log('[PluginInstall] 🗑️ Removed old scs-telemetry.dll from ETS2');
+      }
+
+      if (fs.existsSync(oldEnigmaFolder)) {
+        fs.rmSync(oldEnigmaFolder, { recursive: true, force: true });
+        console.log('[PluginInstall] 🗑️ Removed old enigma/ folder from ETS2');
+      }
+
+      console.log('[PluginInstall] ✅ ETS2 plugin installed');
+    }
+
+    // Install ATS
+    if (atsPath) {
+      const atsPlugins = join(atsPath, 'bin', 'win_x64', 'plugins');
+
+      // Ensure plugins directory exists
+      if (!fs.existsSync(atsPlugins)) {
+        fs.mkdirSync(atsPlugins, { recursive: true });
+      }
+
+      // Copy core plugin directly to plugins/ (no nested folder)
+      fs.copyFileSync(corePlugin, join(atsPlugins, 'enigma_telemetry_core.dll'));
+
+      // Clean up old files if they exist
+      const oldScsPlugin = join(atsPlugins, 'scs-telemetry.dll');
+      const oldEnigmaFolder = join(atsPlugins, 'enigma');
+
+      if (fs.existsSync(oldScsPlugin)) {
+        fs.unlinkSync(oldScsPlugin);
+        console.log('[PluginInstall] 🗑️ Removed old scs-telemetry.dll from ATS');
+      }
+
+      if (fs.existsSync(oldEnigmaFolder)) {
+        fs.rmSync(oldEnigmaFolder, { recursive: true, force: true });
+        console.log('[PluginInstall] 🗑️ Removed old enigma/ folder from ATS');
+      }
+
+      console.log('[PluginInstall] ✅ ATS plugin installed');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[PluginInstall] Error installing plugins:', error);
+    return false;
+  }
+}
+
+// Check and reinstall plugins if app version changed
+function checkAndReinstallPlugins() {
+  try {
+    const appDataPath = app.getPath('userData');
+    const versionFile = join(appDataPath, 'installed-version.txt');
+
+    // Get current app version
+    const projectRoot = join(__dirname, '../..');
+    const packageJsonPath = join(projectRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const currentVersion = packageJson.version;
+
+    // Check if version file exists
+    let installedVersion = null;
+    if (fs.existsSync(versionFile)) {
+      installedVersion = fs.readFileSync(versionFile, 'utf8').trim();
+    }
+
+    // If version changed, reinstall plugins
+    if (installedVersion !== currentVersion) {
+      console.log(`[PluginUpdate] Version changed: ${installedVersion} → ${currentVersion}`);
+      console.log('[PluginUpdate] Reinstalling game plugins...');
+
+      const gamePaths = getGamePaths();
+      if (gamePaths.ets2 || gamePaths.ats) {
+        const success = installGamePlugins(gamePaths.ets2, gamePaths.ats);
+        if (success) {
+          // Save current version
+          fs.writeFileSync(versionFile, currentVersion);
+          console.log('[PluginUpdate] ✅ Plugins updated to v' + currentVersion);
+        }
+      }
+    } else {
+      console.log('[PluginUpdate] Plugins up to date (v' + currentVersion + ')');
+    }
+  } catch (error) {
+    console.error('[PluginUpdate] Error checking plugins:', error);
+  }
+}
+
+// ============================================
+// CUSTOM PORTABLE UPDATER HELPERS
+// ============================================
+
+function getCurrentVersion() {
+  try {
+    const projectRoot = join(__dirname, '../..');
+    const packageJsonPath = join(projectRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return packageJson.version;
+  } catch (err) {
+    console.error('[CustomUpdater] Failed to read current version:', err);
+    return '0.0.0';
+  }
+}
+
+function fetchLatestRelease() {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+      headers: {
+        'User-Agent': 'enigma-hub-updater'
+      }
+    };
+
+    https
+      .get(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            resolve(json);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      })
+      .on('error', reject);
+  });
+}
+
+function isNewerVersion(current, latest) {
+  const c = current.split('.').map((n) => parseInt(n, 10));
+  const l = latest.split('.').map((n) => parseInt(n, 10));
+
+  for (let i = 0; i < Math.max(c.length, l.length); i++) {
+    const cv = c[i] || 0;
+    const lv = l[i] || 0;
+    if (lv > cv) return true;
+    if (lv < cv) return false;
+  }
+  return false;
+}
+
+async function checkForPortableUpdate() {
+  try {
+    const currentVersion = getCurrentVersion();
+    console.log('[CustomUpdater] Current version:', currentVersion);
+
+    const latest = await fetchLatestRelease();
+    if (!latest || !latest.tag_name) {
+      console.log('[CustomUpdater] No latest release info found');
+      return;
+    }
+
+    const latestVersion = latest.tag_name.replace(/^v/, '');
+    console.log('[CustomUpdater] Latest version on GitHub:', latestVersion);
+
+    if (!isNewerVersion(currentVersion, latestVersion)) {
+      console.log('[CustomUpdater] App is up to date');
+      return;
+    }
+
+    const asset = (latest.assets || []).find((a) =>
+      a.name.toLowerCase().endsWith('.exe')
+    );
+
+    if (!asset) {
+      console.log('[CustomUpdater] No .exe asset found in latest release');
+      return;
+    }
+
+    console.log(
+      '[CustomUpdater] Update available:',
+      latestVersion,
+      asset.browser_download_url
+    );
+
+    if (mainWindow) {
+      mainWindow.webContents.send('custom-update-available', {
+        version: latestVersion,
+        notes: latest.body || '',
+        downloadUrl: asset.browser_download_url
+      });
+    }
+  } catch (err) {
+    console.error('[CustomUpdater] Error checking for updates:', err);
+  }
+}
+
+function downloadFile(url, dest, onProgress) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(dest);
+    https
+      .get(url, (response) => {
+        const total = parseInt(response.headers['content-length'] || '0', 10);
+        let downloaded = 0;
+
+        response.on('data', (chunk) => {
+          file.write(chunk);
+          downloaded += chunk.length;
+          if (total && onProgress) {
+            onProgress(downloaded, total);
+          }
+        });
+
+        response.on('end', () => {
+          file.end();
+          resolve();
+        });
+
+        response.on('error', (err) => {
+          file.close();
+          reject(err);
+        });
+      })
+      .on('error', (err) => {
+        file.close();
+        reject(err);
+      });
+  });
+}
+
+// ============================================
+// WINDOW MANAGEMENT
+// ============================================
+
+function createWindow() {
+  console.log('[Window] Creating main window...');
+
+  const preloadPath = getPreloadPath();
+  console.log(`[Window] Preload path: ${preloadPath}`);
+
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 700,
+    frame: false,
+    backgroundColor: '#0a0a0f',
+    webPreferences: {
+      preload: preloadPath,
+      nodeIntegration: false,
+      contextIsolation: true,
+      devTools: true
+    },
+    icon: join(__dirname, '../../src/assets/icon.ico'),
+    show: false
+  });
+
+  const htmlPath = getHTMLPath();
+  console.log(`[Window] Loading: ${htmlPath}`);
+
+  if (isDev && process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(htmlPath);
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(htmlPath);
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    console.log('[Window] ✅ Window ready to show');
+    mainWindow.show();
+  });
+
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[Window] ❌ Failed to load:', errorCode, errorDescription);
+  });
+
+  mainWindow.on('closed', () => {
+    console.log('[Window] Window closed');
+    mainWindow = null;
+  });
+
+  console.log('[Window] ✅ Main window created');
+}
+
+// ============================================
+// IPC HANDLERS - WINDOW CONTROLS
+// ============================================
+
+ipcMain.on('minimize-window', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.on('maximize-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+
+ipcMain.on('close-window', () => {
+  if (mainWindow) mainWindow.close();
+});
+
+ipcMain.on('toggle-devtools', () => {
+  if (mainWindow) {
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+    } else {
+      mainWindow.webContents.openDevTools();
+    }
+  }
+});
+
+// ✅ Overlay toggle
+ipcMain.handle('toggle-overlay', () => {
+  toggleOverlay();
+});
+
+// ============================================
+// IPC HANDLERS - CUSTOM UPDATER
+// ============================================
+
+ipcMain.handle('custom-download-update', async (event, { downloadUrl, version }) => {
+  try {
+    const appDataPath = app.getPath('userData');
+    const updatesDir = join(appDataPath, 'updates');
+    if (!fs.existsSync(updatesDir)) {
+      fs.mkdirSync(updatesDir, { recursive: true });
+    }
+
+    const exePath = join(updatesDir, `EnigmaHub-${version}.exe`);
+    console.log('[CustomUpdater] Downloading update to:', exePath);
+
+    await downloadFile(downloadUrl, exePath, (downloaded, total) => {
+      const percent = total ? Math.round((downloaded / total) * 100) : 0;
+      if (mainWindow) {
+        mainWindow.webContents.send('custom-download-progress', {
+          downloaded,
+          total,
+          percent
+        });
+      }
+    });
+
+    console.log('[CustomUpdater] Download complete');
+
+    if (mainWindow) {
+      mainWindow.webContents.send('custom-update-downloaded', {
+        version,
+        exePath
+      });
+    }
+
+    return { success: true, path: exePath };
+  } catch (err) {
+    console.error('[CustomUpdater] Download failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('custom-apply-update', async (event, { exePath }) => {
+  try {
+    console.log('[CustomUpdater] Applying update:', exePath);
+    
+    if (!fs.existsSync(exePath)) {
+      console.error('[CustomUpdater] Update file not found:', exePath);
+      return { success: false, error: 'Update file not found' };
+    }
+    
+    // Get current .exe path
+    const currentExePath = app.getPath('exe');
+    console.log('[CustomUpdater] Current exe:', currentExePath);
+    console.log('[CustomUpdater] New exe:', exePath);
+    
+    // Check if running from temp folder
+    const isTempLocation = currentExePath.includes('\\Temp\\') || 
+                          currentExePath.includes('\\AppData\\Local\\Temp') ||
+                          currentExePath.includes('\\TEMP\\');
+    
+    if (isTempLocation) {
+      console.warn('[CustomUpdater] Running from TEMP folder - cannot update in place');
+      
+      // Just launch the new exe and quit (user will manually replace)
+      exec(`"${exePath}"`, (err) => {
+        if (err) {
+          console.error('[CustomUpdater] Failed to launch new exe:', err);
+        }
+      });
+      
+      setTimeout(() => {
+        app.quit();
+      }, 500);
+      
+      return { 
+        success: false, 
+        error: 'temp_location',
+        message: 'Please move Enigma Hub.exe to a permanent location (like Desktop or Documents) before updating.'
+      };
+    }
+    
+    // If portable build, replace the .exe
+    if (app.isPackaged) {
+      // Create update batch script
+      const updatesDir = join(app.getPath('userData'), 'updates');
+      const batchPath = join(updatesDir, 'apply-update.bat');
+      
+      // Batch script to replace .exe after quit
+      const batchScript = `@echo off
+echo [Enigma Hub Updater]
+echo Waiting for app to close...
+timeout /t 2 /nobreak > nul
+
+echo Replacing old version...
+del /F /Q "${currentExePath}"
+if errorlevel 1 (
+  echo ERROR: Failed to delete old version
+  pause
+  exit /b 1
+)
+
+echo Installing new version...
+move /Y "${exePath}" "${currentExePath}"
+if errorlevel 1 (
+  echo ERROR: Failed to move new version
+  pause
+  exit /b 1
+)
+
+echo Starting new version...
+start "" "${currentExePath}"
+
+echo Cleaning up...
+timeout /t 2 /nobreak > nul
+del "%~f0"
+`;
+      
+      // Write batch script
+      fs.writeFileSync(batchPath, batchScript);
+      console.log('[CustomUpdater] Batch script created:', batchPath);
+      
+      // Launch batch script (hidden window)
+      exec(`cmd /c "${batchPath}"`, {
+        windowsHide: true,
+        detached: true
+      }, (err) => {
+        if (err) {
+          console.error('[CustomUpdater] Failed to launch updater:', err);
+        }
+      });
+      
+      // Quit app after short delay
+      setTimeout(() => {
+        console.log('[CustomUpdater] Quitting to apply update...');
+        app.quit();
+      }, 500);
+      
+      return { success: true };
+    } else {
+      // Dev mode - just launch new exe
+      console.log('[CustomUpdater] Dev mode - launching new exe without replacement');
+      exec(`"${exePath}"`, (err) => {
+        if (err) {
+          console.error('[CustomUpdater] Failed to launch new exe:', err);
+        }
+      });
+      
+      setTimeout(() => {
+        app.quit();
+      }, 1000);
+      
+      return { success: true };
+    }
+  } catch (err) {
+    console.error('[CustomUpdater] Apply update failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// Manual check for updates (from Settings button) - ELECTRON-UPDATER
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    console.log('[AutoUpdater] Manual update check triggered');
+    if (!isDev) {
+      const result = await autoUpdater.checkForUpdates();
+      return { success: true, updateInfo: result?.updateInfo };
+    }
+    return { success: true, message: 'Dev mode - no updates' };
+  } catch (error) {
+    console.error('[AutoUpdater] Manual check error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Install update (quit and install)
+ipcMain.on('install-update', () => {
+  console.log('[AutoUpdater] Quit and install triggered');
+  autoUpdater.quitAndInstall(false, true);
+});
+
+// CUSTOM UPDATER HANDLERS - DISABLED FOR NSIS
+// Manual check for updates (from Settings button)
+// ipcMain.handle('custom-check-for-updates', async () => {
+//   try {
+//     console.log('[CustomUpdater] Manual update check triggered');
+//     await checkForPortableUpdate();
+//     return { success: true };
+//   } catch (error) {
+//     console.error('[CustomUpdater] Manual check error:', error);
+//     return { success: false, error: error.message };
+//   }
+// });
+
+// ============================================
+// IPC HANDLERS - TELEMETRY
+// ============================================
+
+ipcMain.handle('telemetry-user-login', (event, userData) => {
+  console.log('[Telemetry] User logged in:', userData.username);
+  setCurrentUser(userData);
+  return { success: true };
+});
+
+ipcMain.handle('telemetry-user-logout', () => {
+  console.log('[Telemetry] User logged out');
+  setCurrentUser(null);
+  return { success: true };
+});
+
+// ============================================
+// IPC HANDLERS - MANUAL UPDATE MANAGER
+// ============================================
+
+ipcMain.handle('download-update', async (event, { downloadUrl, version }) => {
+  try {
+    const appDataPath = app.getPath('userData');
+    const updatesDir = join(appDataPath, 'updates');
+    if (!fs.existsSync(updatesDir)) {
+      fs.mkdirSync(updatesDir, { recursive: true });
+    }
+
+    const exePath = join(updatesDir, `EnigmaHub-${version}.exe`);
+    console.log('[ManualUpdate] Downloading to:', exePath);
+
+    await downloadFile(downloadUrl, exePath, (downloaded, total) => {
+      const percent = total ? Math.round((downloaded / total) * 100) : 0;
+      if (mainWindow) {
+        mainWindow.webContents.send('download-progress', {
+          downloaded,
+          total,
+          percent
+        });
+      }
+    });
+
+    console.log('[ManualUpdate] Download complete');
+    return { success: true, path: exePath };
+  } catch (err) {
+    console.error('[ManualUpdate] Download failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('apply-update', async (event, { exePath }) => {
+  try {
+    console.log('[ManualUpdate] Applying update:', exePath);
+    
+    if (!fs.existsSync(exePath)) {
+      return { success: false, error: 'Update file not found' };
+    }
+
+    // For NSIS installer, just launch it
+    exec(`"${exePath}"`, (err) => {
+      if (err) {
+        console.error('[ManualUpdate] Failed to launch installer:', err);
+      }
+    });
+
+    // Quit after short delay
+    setTimeout(() => {
+      app.quit();
+    }, 1000);
+
+    return { success: true };
+  } catch (err) {
+    console.error('[ManualUpdate] Apply failed:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// ============================================
+// IPC HANDLERS - APP INFO
+// ============================================
+
+ipcMain.handle('get-app-version', () => {
+  try {
+    const projectRoot = join(__dirname, '../..');
+    const packageJsonPath = join(projectRoot, 'package.json');
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    return packageJson.version;
+  } catch (error) {
+    console.error('[Version] Error reading version:', error);
+    return '1.0.0';
+  }
+});
+
+// ============================================
+// IPC HANDLERS - FIRST RUN WIZARD
+// ============================================
+
+ipcMain.handle('check-first-run', () => {
+  const firstRun = isFirstRun();
+  console.log('[FirstRun] Check result:', firstRun);
+  return firstRun;
+});
+
+ipcMain.handle('get-game-paths', () => {
+  const paths = getGamePaths();
+  console.log('[GamePaths] Retrieved:', paths);
+  return paths;
+});
+
+ipcMain.handle('browse-folder', async (event, title, defaultPath) => {
+  console.log('[BrowseFolder] Opening dialog:', title);
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: title || 'Select Folder',
+    defaultPath: defaultPath || 'C:\\Program Files (x86)\\Steam\\steamapps\\common',
+    properties: ['openDirectory']
+  });
+
+  if (result.canceled || !result.filePaths[0]) {
+    console.log('[BrowseFolder] User cancelled');
+    return null;
+  }
+
+  console.log('[BrowseFolder] Selected:', result.filePaths[0]);
+  return result.filePaths[0];
+});
+
+ipcMain.handle('validate-game-path', (event, path, game) => {
+  console.log('[ValidatePath] Checking:', game, path);
+
+  if (!path) return false;
+
+  let isValid = false;
+
+  if (game === 'ets2') {
+    isValid = fs.existsSync(join(path, 'bin', 'win_x64', 'eurotrucks2.exe'));
+  } else if (game === 'ats') {
+    isValid = fs.existsSync(join(path, 'bin', 'win_x64', 'amtrucks.exe'));
+  }
+
+  console.log('[ValidatePath] Result:', isValid);
+  return isValid;
+});
+
+ipcMain.handle('save-game-paths', async (event, ets2Path, atsPath) => {
+  console.log('[SavePaths] Saving:', { ets2: ets2Path, ats: atsPath });
+
+  try {
+    // Save paths
+    const saved = saveGamePaths(ets2Path, atsPath);
+
+    if (!saved) {
+      console.error('[SavePaths] Failed to save paths');
+      return { success: false, error: 'Failed to save paths' };
+    }
+
+    // Install plugins
+    console.log('[SavePaths] Installing plugins...');
+    const installed = installGamePlugins(ets2Path, atsPath);
+
+    if (!installed) {
+      console.error('[SavePaths] Failed to install plugins');
+      return { success: false, error: 'Failed to install plugins' };
+    }
+
+    console.log('[SavePaths] ✅ Success!');
+    return { success: true };
+  } catch (error) {
+    console.error('[SavePaths] Error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('auto-detect-games', () => {
+  console.log('[AutoDetect] Searching for games...');
+
+  const steamPaths = [
+    'C:\\Program Files (x86)\\Steam\\steamapps\\common',
+    'D:\\SteamLibrary\\steamapps\\common',
+    'E:\\SteamLibrary\\steamapps\\common',
+    'F:\\SteamLibrary\\steamapps\\common',
+    'G:\\SteamLibrary\\steamapps\\common'
+  ];
+
+  const detected = {
+    ets2: null,
+    ats: null
+  };
+
+  for (const steamPath of steamPaths) {
+    if (!detected.ets2) {
+      const ets2Path = join(steamPath, 'Euro Truck Simulator 2');
+      if (fs.existsSync(join(ets2Path, 'bin', 'win_x64', 'eurotrucks2.exe'))) {
+        detected.ets2 = ets2Path;
+        console.log('[AutoDetect] Found ETS2:', ets2Path);
+      }
+    }
+
+    if (!detected.ats) {
+      const atsPath = join(steamPath, 'American Truck Simulator');
+      if (fs.existsSync(join(atsPath, 'bin', 'win_x64', 'amtrucks.exe'))) {
+        detected.ats = atsPath;
+        console.log('[AutoDetect] Found ATS:', atsPath);
+      }
+    }
+
+    if (detected.ets2 && detected.ats) break;
+  }
+
+  console.log('[AutoDetect] Results:', detected);
+  return detected;
+});
+
+// ============================================
+// IPC HANDLERS - DEVPANEL & GIT FLOW
+// ============================================
+
+ipcMain.handle('quick-push', async () => {
+  try {
+    const { stdout } = await execAsync('git add . && git commit -m "Quick update" && git push');
+    console.log('[QuickPush] Success:', stdout);
+    return { success: true, message: 'Pushed to GitHub' };
+  } catch (error) {
+    console.error('[QuickPush] Error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('push-release', async (event, { version, releaseNotes }) => {
+  try {
+    const projectRoot = join(__dirname, '../..');
+    const packageJsonPath = join(projectRoot, 'package.json');
+
+    // Update package.json version
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    packageJson.version = version;
+    fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+    console.log('[PushRelease] Updated version to:', version);
+
+    // Git commit + tag + push
+    await execAsync('git add .');
+    await execAsync(`git commit -m "Release v${version}"`);
+    await execAsync(`git tag -a v${version} -m "${releaseNotes.replace(/"/g, '\\"')}"`);
+    await execAsync('git push');
+    await execAsync(`git push origin v${version}`);
+    console.log('[PushRelease] Pushed tag v${version}');
+
+    // Build and publish (will auto-publish with releaseType: "release")
+    console.log('[PushRelease] Building and publishing to GitHub...');
+    await execAsync('npm run publish');
+    console.log('[PushRelease] ✅ Published to GitHub and marked as latest release');
+
+    return { success: true };
+  } catch (error) {
+    console.error('[PushRelease] Error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('uninstall-app', async () => {
+  try {
+    const appDataPath = app.getPath('appData');
+    const enigmaPath = join(appDataPath, 'enigma-hub-frontend');
+
+    // Get game paths
+    const gamePathsFile = join(enigmaPath, 'game-paths.json');
+    let gamePaths = null;
+
+    if (fs.existsSync(gamePathsFile)) {
+      const data = fs.readFileSync(gamePathsFile, 'utf8');
+      gamePaths = JSON.parse(data);
+    }
+
+    // Delete plugins from games
+    if (gamePaths) {
+      const deletePlugin = (gamePath) => {
+        if (!gamePath) return;
+        const pluginsDir = join(gamePath, 'bin', 'win_x64', 'plugins');
+
+        // Delete DLL
+        const dllPath = join(pluginsDir, 'scs-telemetry.dll');
+        if (fs.existsSync(dllPath)) {
+          fs.unlinkSync(dllPath);
+          console.log('[Uninstall] Deleted:', dllPath);
+        }
+
+        // Delete folder
+        const folderPath = join(pluginsDir, 'enigma');
+        if (fs.existsSync(folderPath)) {
+          fs.rmSync(folderPath, { recursive: true, force: true });
+          console.log('[Uninstall] Deleted folder:', folderPath);
+        }
+      };
+
+      deletePlugin(gamePaths.ets2);
+      deletePlugin(gamePaths.ats);
+    }
+
+    // Delete app data
+    if (fs.existsSync(enigmaPath)) {
+      fs.rmSync(enigmaPath, { recursive: true, force: true });
+      console.log('[Uninstall] Deleted app data');
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('[Uninstall] Error:', error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// APP LIFECYCLE
+// ============================================
+
+app.whenReady().then(() => {
+  console.log('[App] App ready!');
+  console.log('[App] Starting telemetry server on port 25555...');
+  startTelemetryServer();
+
+  // Clean up old update files
+  cleanupOldUpdates();
+
+  // Check and reinstall plugins if version changed
+  checkAndReinstallPlugins();
+
+  createWindow();
+  createOverlay(); // ✅ Create overlay window
+
+  // ✅ Register global keyboard shortcut for overlay
+  globalShortcut.register('Alt+I', () => {
+    console.log('[Overlay] Alt+I pressed - toggling overlay');
+    toggleOverlay();
+  });
+
+  // electron-updater for NSIS (production only)
+  if (!isDev) {
+    console.log('[AutoUpdater] Checking for updates...');
+    autoUpdater.checkForUpdatesAndNotify();
+    
+    autoUpdater.on('checking-for-update', () => {
+      console.log('[AutoUpdater] Checking for update...');
+    });
+    
+    autoUpdater.on('update-available', (info) => {
+      console.log('[AutoUpdater] Update available:', info.version);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available', info);
+      }
+    });
+    
+    autoUpdater.on('update-not-available', () => {
+      console.log('[AutoUpdater] App is up to date');
+    });
+    
+    autoUpdater.on('download-progress', (progress) => {
+      console.log(`[AutoUpdater] Download progress: ${Math.round(progress.percent)}%`);
+      if (mainWindow) {
+        mainWindow.webContents.send('download-progress', progress);
+      }
+    });
+    
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AutoUpdater] Update downloaded:', info.version);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-downloaded', info);
+      }
+    });
+    
+    autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater] Error:', err);
+    });
+    
+    // Check every 2 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, UPDATE_CHECK_INTERVAL);
+  }
+
+  // CUSTOM UPDATER (portable builds) - DISABLED FOR NSIS
+  // if (!isDev) {
+  //   console.log('[CustomUpdater] Initial update check...');
+  //   checkForPortableUpdate();
+  //
+  //   setInterval(() => {
+  //     console.log('[CustomUpdater] Periodic update check...');
+  //     checkForPortableUpdate();
+  //   }, UPDATE_CHECK_INTERVAL);
+  // }
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+// ✅ Cleanup shortcuts on app quit
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+app.on('window-all-closed', () => {
+  console.log('[App] All windows closed');
+  console.log('[App] Stopping telemetry server...');
+  stopTelemetryServer();
+
+  if (logStream) {
+    logStream.end();
+  }
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('browser-window-created', (_, window) => {
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      if (window.webContents.isDevToolsOpened()) {
+        window.webContents.closeDevTools();
+      } else {
+        window.webContents.openDevTools();
+      }
+      event.preventDefault();
+    }
+  });
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[App] ❌ Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (error) => {
+  console.error('[App] ❌ Unhandled rejection:', error);
+});
+
+console.log('[App] ✅ Main process initialized');

@@ -1,0 +1,9 @@
+// src/renderer/overlay.jsx
+import React from "react";
+import ReactDOM from "react-dom/client";
+import OverlayApp from "./OverlayApp";
+import "./styles/index.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <OverlayApp />
+);
