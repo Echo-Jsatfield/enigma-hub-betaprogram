@@ -958,6 +958,21 @@ ipcMain.handle('push-release', async (event, { version, releaseNotes }) => {
     const branch = branchName.trim();
     console.log('[PushRelease] Current branch:', branch);
 
+    // Delete existing tag if it exists (local and remote)
+    try {
+      await execAsync(`git tag -d v${version}`);
+      console.log('[PushRelease] Deleted existing local tag v' + version);
+    } catch (err) {
+      // Tag doesn't exist locally, that's fine
+    }
+
+    try {
+      await execAsync(`git push origin :refs/tags/v${version}`);
+      console.log('[PushRelease] Deleted existing remote tag v' + version);
+    } catch (err) {
+      // Tag doesn't exist on remote, that's fine
+    }
+
     // Git commit + tag + push
     await execAsync('git add .');
     await execAsync(`git commit -m "Release v${version}"`);
