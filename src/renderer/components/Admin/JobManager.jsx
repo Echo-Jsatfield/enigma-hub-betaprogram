@@ -1,4 +1,4 @@
-// src/renderer/components/Admin/JobManager.jsx
+// src/components/Admin/JobManager.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -98,6 +98,33 @@ export default function JobManager() {
       });
   }, [jobs, searchTerm, statusFilter, flagFilter]);
 
+  const statusToClasses = (status) => {
+    const s = (status || "").toLowerCase();
+    if (s === "completed") return "bg-emerald-900/40 text-emerald-300 border-emerald-700";
+    if (s === "cancelled") return "bg-red-900/40 text-red-300 border-red-700";
+    if (s === "abandoned") return "bg-amber-900/40 text-amber-300 border-amber-700";
+    if (s === "in_progress") return "bg-sky-900/40 text-sky-300 border-sky-700";
+    return "bg-[#050312]/90 text-slate-100 border-[#3b234f]";
+  };
+
+  const damageToClasses = (pct) => {
+    const p = Number(pct);
+    if (Number.isNaN(p)) return "text-slate-100";
+    if (p <= 5) return "text-emerald-300";
+    if (p <= 15) return "text-amber-300";
+    return "text-red-300";
+  };
+
+  const stats = useMemo(
+    () => ({
+      total: jobs.length,
+      flagged: jobs.filter((j) => j.flagged).length,
+      completed: jobs.filter((j) => (j.status || "").toLowerCase() === "completed").length,
+      inProgress: jobs.filter((j) => (j.status || "").toLowerCase() === "in_progress").length,
+    }),
+    [jobs]
+  );
+
   const openEditModal = (job) => {
     setSelectedJob(job);
     setEditState({
@@ -194,13 +221,13 @@ export default function JobManager() {
 
   if (!isStaff || !isStaff()) {
     return (
-      <div className="p-6">
-        <div className="bg-[#18122b] border border-[#2d1b5c] rounded-2xl p-6 text-center">
+      <div className="p-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+        <div className="bg-[#1b1024] border border-[#2c1e3a] rounded-2xl p-6 text-center shadow-xl shadow-black/70">
           <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-white mb-1">
+          <h2 className="text-lg font-semibold text-slate-50 mb-1">
             Staff Only
           </h2>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400">
             The job manager is restricted to staff members.
           </p>
         </div>
@@ -209,44 +236,68 @@ export default function JobManager() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+      {/* HEADER */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <p className="text-[11px] uppercase tracking-[0.25em] text-purple-200/80 mb-1">
+            Staff Tools
+          </p>
+          <h1 className="text-2xl font-semibold text-slate-50 tracking-tight">
             Admin Job Manager
           </h1>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400 mt-1">
             Search, edit, flag, and manage all completed jobs.
           </p>
         </div>
         <button
           onClick={fetchJobs}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 border border-gray-700 text-sm text-gray-100 hover:bg-gray-700"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-white transition disabled:opacity-50 shadow-sm shadow-black/70"
+          style={{ background: "linear-gradient(135deg, #6A0DAD, #f8cc00)" }}
         >
-          <RefreshCcw className="w-4 h-4" />
+          <RefreshCcw className="w-4 h-4 text-sky-300" />
           Refresh
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-[#18122b] border border-[#2d1b5c] rounded-2xl p-4 flex flex-wrap gap-3 items-center">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="flex items-center gap-2 rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-3 py-2">
+          <span className="text-[11px] text-slate-400">Total</span>
+          <span className="text-sm font-semibold text-slate-100">{stats.total}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-3 py-2">
+          <span className="text-[11px] text-slate-400">Completed</span>
+          <span className="text-sm font-semibold text-emerald-300">{stats.completed}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-3 py-2">
+          <span className="text-[11px] text-slate-400">In Progress</span>
+          <span className="text-sm font-semibold text-sky-300">{stats.inProgress}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-3 py-2">
+          <span className="text-[11px] text-slate-400">Flagged</span>
+          <span className="text-sm font-semibold text-red-300">{stats.flagged}</span>
+        </div>
+      </div>
+
+      {/* FILTERS */}
+      <div className="bg-[#1b1024] border border-[#2c1e3a] rounded-2xl p-4 flex flex-wrap gap-3 items-center shadow-lg shadow-black/70">
         <div className="flex items-center flex-1 gap-2">
           <div className="relative w-full">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search by job ID, username, cargo, city..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-purple-500"
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#6A0DAD] focus:ring-1 focus:ring-[#6A0DAD]/60"
             />
           </div>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <Filter className="w-4 h-4 text-gray-400" />
+          <Filter className="w-4 h-4 text-slate-400" />
           <select
-            className="rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-gray-100"
+            className="rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-2 py-1.5 text-[11px] text-slate-100 focus:outline-none focus:border-[#6A0DAD]"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -257,7 +308,7 @@ export default function JobManager() {
             <option value="in_progress">In progress</option>
           </select>
           <select
-            className="rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-gray-100"
+            className="rounded-xl bg-[#12051a]/80 border border-[#2c1e3a] px-2 py-1.5 text-[11px] text-slate-100 focus:outline-none focus:border-[#6A0DAD]"
             value={flagFilter}
             onChange={(e) => setFlagFilter(e.target.value)}
           >
@@ -269,25 +320,25 @@ export default function JobManager() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 text-sm text-red-200 px-3 py-2">
+        <div className="rounded-xl border border-red-500/50 bg-red-500/10 text-sm text-red-200 px-3 py-2">
           {error}
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-2xl border border-[#2d1b5c] bg-[#18122b]">
+      {/* TABLE */}
+      <div className="overflow-x-auto rounded-2xl border border-[#2c1e3a] bg-[#1b1024] shadow-xl shadow-black/80">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900/80 text-[11px] uppercase tracking-wide text-gray-400">
+          <thead className="bg-[#12051a]/95 text-[11px] uppercase tracking-wide text-slate-400 border-b border-[#2c1e3a]">
             <tr>
-              <th className="px-3 py-2 text-left">Job ID</th>
-              <th className="px-3 py-2 text-left">Driver</th>
-              <th className="px-3 py-2 text-left">Cargo</th>
-              <th className="px-3 py-2 text-left">Route</th>
-              <th className="px-3 py-2 text-left">Distance</th>
-              <th className="px-3 py-2 text-left">Damage %</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Flags</th>
-              <th className="px-3 py-2 text-right">Actions</th>
+              <th className="px-3 py-2 text-left text-[#f8cc00]">Job ID</th>
+              <th className="px-3 py-2 text-left text-[#6A0DAD]">Driver</th>
+              <th className="px-3 py-2 text-left text-sky-300">Cargo</th>
+              <th className="px-3 py-2 text-left text-indigo-300">Route</th>
+              <th className="px-3 py-2 text-left text-cyan-300">Distance</th>
+              <th className="px-3 py-2 text-left text-amber-300">Damage %</th>
+              <th className="px-3 py-2 text-left text-emerald-300">Status</th>
+              <th className="px-3 py-2 text-left text-red-300">Flags</th>
+              <th className="px-3 py-2 text-right text-violet-300">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -295,7 +346,7 @@ export default function JobManager() {
               <tr>
                 <td
                   colSpan={9}
-                  className="px-3 py-6 text-center text-gray-500"
+                  className="px-3 py-6 text-center text-slate-500"
                 >
                   Loading jobs...
                 </td>
@@ -304,7 +355,7 @@ export default function JobManager() {
               <tr>
                 <td
                   colSpan={9}
-                  className="px-3 py-6 text-center text-gray-500"
+                  className="px-3 py-6 text-center text-slate-500"
                 >
                   No jobs found with current filters.
                 </td>
@@ -313,36 +364,46 @@ export default function JobManager() {
               filteredJobs.map((job) => (
                 <tr
                   key={job.job_number}
-                  className="border-t border-[#2d1b5c] hover:bg-gray-900/60"
+                  className="border-t border-[#2c1e3a] hover:bg-[#241233] transition-colors"
                 >
-                  <td className="px-3 py-2 font-mono text-[11px] text-gray-300">
+                  <td
+                    className={`px-3 py-2 font-mono text-[11px] ${String(
+                      job.job_number || ""
+                    )
+                      .toUpperCase()
+                      .startsWith("EH")
+                      ? "text-[#f8cc00] font-semibold"
+                      : "text-slate-300"}`}
+                  >
                     {job.job_number}
                   </td>
-                  <td className="px-3 py-2 text-gray-100">
-                    <div className="font-medium">
+                  <td className="px-3 py-2 text-slate-100">
+                    <div className="font-medium text-white">
                       {job.username || "Unknown"}
                     </div>
-                    <div className="text-[10px] text-gray-400">
+                    <div className="text-[10px] text-slate-400">
                       {job.game || "—"}
                     </div>
                     {job.is_quick_job && (
-                      <div className="mt-0.5 text-[10px] text-indigo-400">
+                      <div className="mt-0.5 text-[10px] text-indigo-300">
                         Quick Job
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-gray-100">
+                  <td className="px-3 py-2 text-slate-100">
                     <div className="truncate max-w-[140px]">
                       {job.cargo_display || job.cargo || "—"}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-gray-100">
+                  <td className="px-3 py-2 text-slate-100">
                     <div className="text-[11px]">
                       {job.pickup_city_display || job.source_city || "?"} →{" "}
-                      {job.delivery_city_display || job.destination_city || "?"}
+                      {job.delivery_city_display ||
+                        job.destination_city ||
+                        "?"}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-gray-100">
+                  <td className="px-3 py-2 text-slate-100">
                     <div className="text-[11px]">
                       {job.actual_distance != null
                         ? `${job.actual_distance} km`
@@ -351,24 +412,24 @@ export default function JobManager() {
                         : "—"}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-gray-100">
-                    {job.damage_percent != null
-                      ? `${job.damage_percent}%`
-                      : "—"}
+                  <td className="px-3 py-2">
+                    <span className={damageToClasses(job.damage_percent)}>
+                      {job.damage_percent != null ? `${job.damage_percent}%` : "—"}
+                    </span>
                   </td>
                   <td className="px-3 py-2">
-                    <span className="inline-flex items-center rounded-full bg-gray-900 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-200">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide border ${statusToClasses(job.status)}`}>
                       {job.status || "unknown"}
                     </span>
                   </td>
                   <td className="px-3 py-2">
                     {job.flagged ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-300 border border-red-500/60">
                         <Flag className="w-3 h-3" />
                         Flagged
                       </span>
                     ) : (
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-slate-500">
                         None
                       </span>
                     )}
@@ -377,13 +438,13 @@ export default function JobManager() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => openViewModal(job)}
-                        className="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200 hover:bg-gray-800"
+                        className="rounded-lg border border-[#2c1e3a] px-2 py-1 text-[11px] text-slate-100 hover:bg-[#1b1024]/80 transition-colors"
                       >
                         <Eye className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => openEditModal(job)}
-                        className="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200 hover:bg-gray-800"
+                        className="rounded-lg border border-[#2c1e3a] px-2 py-1 text-[11px] text-slate-100 hover:bg-[#1b1024]/80 transition-colors"
                       >
                         <Pencil className="w-3 h-3" />
                       </button>
@@ -391,13 +452,13 @@ export default function JobManager() {
                         onClick={() => forceDiscordSync(job)}
                         disabled={actionLoading}
                         title="Force Discord sync"
-                        className="rounded-lg border border-gray-700 px-2 py-1 text-[11px] text-gray-200 hover:bg-gray-800 disabled:opacity-50"
+                        className="rounded-lg border border-[#2c1e3a] px-2 py-1 text-[11px] text-slate-100 hover:bg-[#1b1024]/80 disabled:opacity-50 transition-colors"
                       >
                         <RefreshCcw className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => openDeleteModal(job)}
-                        className="rounded-lg border border-red-500/60 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10"
+                        className="rounded-lg border border-red-500/70 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10 transition-colors"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -413,10 +474,10 @@ export default function JobManager() {
       {/* Edit Modal */}
       {showEditModal && selectedJob && (
         <Modal onClose={() => setShowEditModal(false)} title="Edit Job">
-          <div className="space-y-3 text-sm text-gray-100">
+          <div className="space-y-3 text-sm text-slate-100">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-xs text-gray-400">
+                <label className="block mb-1 text-xs text-slate-400">
                   Income
                 </label>
                 <input
@@ -425,11 +486,11 @@ export default function JobManager() {
                   onChange={(e) =>
                     handleEditChange("total_income", e.target.value)
                   }
-                  className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-xs text-gray-400">
+                <label className="block mb-1 text-xs text-slate-400">
                   Distance (km)
                 </label>
                 <input
@@ -438,14 +499,14 @@ export default function JobManager() {
                   onChange={(e) =>
                     handleEditChange("actual_distance", e.target.value)
                   }
-                  className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-xs text-gray-400">
+                <label className="block mb-1 text-xs text-slate-400">
                   Damage %
                 </label>
                 <input
@@ -454,11 +515,11 @@ export default function JobManager() {
                   onChange={(e) =>
                     handleEditChange("damage_percent", e.target.value)
                   }
-                  className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-xs text-gray-400">
+                <label className="block mb-1 text-xs text-slate-400">
                   Status
                 </label>
                 <input
@@ -467,7 +528,7 @@ export default function JobManager() {
                   onChange={(e) =>
                     handleEditChange("status", e.target.value)
                   }
-                  className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                   placeholder="completed / abandoned / cancelled..."
                 />
               </div>
@@ -481,11 +542,11 @@ export default function JobManager() {
                 onChange={(e) =>
                   handleEditChange("flagged", e.target.checked)
                 }
-                className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-purple-500"
+                className="h-4 w-4 rounded border-[#3b234f] bg-[#050312] text-[#6a0dad] focus:ring-[#6a0dad]"
               />
               <label
                 htmlFor="flagged"
-                className="text-xs text-gray-200 flex items-center gap-1"
+                className="text-xs text-slate-200 flex items-center gap-1"
               >
                 <Flag className="w-3 h-3 text-red-300" />
                 Mark as flagged
@@ -493,7 +554,7 @@ export default function JobManager() {
             </div>
 
             <div>
-              <label className="block mb-1 text-xs text-gray-400">
+              <label className="block mb-1 text-xs text-slate-400">
                 Flag reasons / notes
               </label>
               <textarea
@@ -502,7 +563,7 @@ export default function JobManager() {
                 onChange={(e) =>
                   handleEditChange("flag_reasons", e.target.value)
                 }
-                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                 placeholder="Why is this job flagged?"
               />
             </div>
@@ -510,14 +571,14 @@ export default function JobManager() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-3 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-200 hover:bg-gray-800"
+                className="px-3 py-1.5 rounded-lg border border-[#2c1e3a] text-xs text-slate-200 hover:bg-[#1b1024]/80 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={submitEdit}
                 disabled={actionLoading}
-                className="px-3 py-1.5 rounded-lg bg-purple-600 text-xs text-white hover:bg-purple-700 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#6a0dad] via-[#8b5cf6] to-[#22d3ee] text-xs text-white hover:brightness-110 disabled:opacity-50 transition-colors"
               >
                 Save Changes
               </button>
@@ -532,7 +593,7 @@ export default function JobManager() {
           onClose={() => setShowViewModal(false)}
           title={`Job #${selectedJob.job_number}`}
         >
-          <div className="space-y-2 text-sm text-gray-100">
+          <div className="space-y-2 text-sm text-slate-100">
             <DetailRow label="Driver" value={selectedJob.username} />
             <DetailRow label="Game" value={selectedJob.game} />
             <DetailRow
@@ -611,7 +672,7 @@ export default function JobManager() {
           onClose={() => setShowDeleteModal(false)}
           title="Delete Job (Soft Delete)"
         >
-          <div className="space-y-3 text-sm text-gray-100">
+          <div className="space-y-3 text-sm text-slate-100">
             <p className="text-amber-200 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5" />
               This will mark the job as deleted but keep it in history for
@@ -624,28 +685,28 @@ export default function JobManager() {
               }`}
             />
             <div>
-              <label className="block mb-1 text-xs text-gray-400">
+              <label className="block mb-1 text-xs text-slate-400">
                 Reason (optional)
               </label>
               <textarea
                 rows={3}
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
-                className="w-full rounded-lg bg-gray-900 border border-gray-700 px-2 py-1 text-sm text-gray-100 focus:outline-none focus:border-purple-500"
+                className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
                 placeholder="Why are you deleting this job?"
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="px-3 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-200 hover:bg-gray-800"
+                className="px-3 py-1.5 rounded-lg border border-[#2c1e3a] text-xs text-slate-200 hover:bg-[#1b1024]/80 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={actionLoading}
-                className="px-3 py-1.5 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 Confirm Delete
               </button>
@@ -663,13 +724,13 @@ function Modal({ title, children, onClose }) {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg rounded-2xl bg-[#18122b] border border-[#2d1b5c] shadow-xl p-4"
+        className="w-full max-w-lg rounded-2xl bg-[#120b21] border border-[#3b234f] shadow-2xl shadow-black/80 p-4"
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-white">{title}</h2>
+          <h2 className="text-sm font-semibold text-slate-50">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-800 text-gray-300"
+            className="p-1 rounded-full hover:bg-[#1b1024]/80 text-slate-300 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -683,8 +744,8 @@ function Modal({ title, children, onClose }) {
 function DetailRow({ label, value }) {
   return (
     <div className="flex justify-between gap-3 text-xs">
-      <span className="text-gray-400">{label}</span>
-      <span className="text-gray-100 text-right break-all">
+      <span className="text-slate-400">{label}</span>
+      <span className="text-slate-100 text-right break-all">
         {value ?? "—"}
       </span>
     </div>

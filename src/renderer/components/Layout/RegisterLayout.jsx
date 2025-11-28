@@ -85,11 +85,11 @@ export default function RegisterLayout() {
         {/* LEFT SIDE - Truck Image Section */}
         <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
           {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#2a1357] via-[#1a1a2e] to-[#0a0a0f]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2a0e4a] via-[#1b1024] to-[#12051a]" />
           
           {/* Animated Glows */}
-          <div className="absolute top-20 left-20 w-96 h-96 bg-[#a855f7]/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#fbbf24]/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-16 left-12 w-96 h-96 bg-[#6A0DAD]/25 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-14 right-16 w-80 h-80 bg-[#f8cc00]/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
           
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center justify-center w-full p-12 text-center">
@@ -100,7 +100,7 @@ export default function RegisterLayout() {
               className="mb-8"
             >
               <div className="text-9xl mb-6">🚛</div>
-              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-[#a855f7] to-[#fbbf24] bg-clip-text text-transparent">
+              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
               <p className="text-xl text-gray-400">
@@ -148,7 +148,7 @@ export default function RegisterLayout() {
             {/* Logo for mobile */}
             <div className="lg:hidden text-center mb-8">
               <div className="text-6xl mb-4">🚛</div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#a855f7] to-[#fbbf24] bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
             </div>
@@ -251,7 +251,7 @@ export default function RegisterLayout() {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-[#a855f7] to-[#fbbf24] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#a855f7]/50 mt-6"
+                className="w-full bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#6A0DAD]/50 mt-6"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -270,7 +270,7 @@ export default function RegisterLayout() {
                 <button
                   onClick={() => !loading && setAuthMode("login")}
                   disabled={loading}
-                  className="text-[#fbbf24] hover:text-[#ffdb4d] font-medium transition disabled:opacity-50"
+                  className="text-[#f8cc00] hover:text-[#ffdb4d] font-medium transition disabled:opacity-50"
                 >
                   Sign in here
                 </button>

@@ -22,30 +22,71 @@ export default function TitleBar({ showLogo = true }) {
 
   return (
     <div
-      className="h-8 bg-[#1b1024] border-b border-[#2c1e3a] flex items-center justify-between px-4 select-none"
-      style={{ WebkitAppRegion: "drag" }}
+      className="h-8 flex items-center justify-between px-4 select-none shadow-lg border-b"
+      style={{
+        WebkitAppRegion: "drag",
+        background: "#0b0c1a", // match auth panel background
+        borderColor: "#2d1b5c",
+        backdropFilter: "blur(8px)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.45)"
+      }}
     >
       {/* Left side - Logo */}
       <div className="flex items-center gap-2">
         {showLogo && (
-          <span className="text-[#f8cc00] font-bold text-sm">ENIGMA HUB</span>
+          <span
+            className="font-bold text-sm tracking-wide"
+            style={{
+              color: "#f8cc00",                // your gold accent
+              textShadow: "0 0 6px rgba(248, 204, 0, 0.4)"
+            }}
+          >
+            ENIGMA HUB
+          </span>
         )}
       </div>
-      
+
       {/* Window Controls */}
-      <div 
+      <div
         className="flex gap-3"
         style={{ WebkitAppRegion: "no-drag" }}
       >
+        {/* Minimize */}
         <div
           onClick={handleMinimize}
-          className="w-4 h-4 bg-purple-500 rounded-full cursor-pointer hover:bg-purple-400 transition-colors"
-          style={{ WebkitAppRegion: "no-drag" }}
+          className="w-4 h-4 rounded-full cursor-pointer transition-all"
+          title="Minimize"
+          style={{
+            WebkitAppRegion: "no-drag",
+            backgroundColor: "#6A0DAD",          // brand purple
+            border: "1px solid #9e4ce6",         // lighter purple ring
+            boxShadow: "0 0 6px rgba(106, 13, 173, 0.5)"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#8d24ff"; // lighter purple hover
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "#6A0DAD";
+          }}
         />
+
+        {/* Close */}
         <div
           onClick={handleClose}
-          className="w-4 h-4 bg-red-500 rounded-full cursor-pointer hover:bg-red-400 transition-colors"
-          style={{ WebkitAppRegion: "no-drag" }}
+          className="w-4 h-4 rounded-full cursor-pointer transition-all"
+          title="Close"
+          style={{
+            WebkitAppRegion: "no-drag",
+            backgroundColor: "#e43445",
+            border: "1px solid #ff6b7a",
+            boxShadow: "0 0 6px rgba(255, 60, 60, 0.5)"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#ff4a59";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "#e43445";
+          }}
         />
       </div>
     </div>

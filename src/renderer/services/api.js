@@ -12,6 +12,10 @@ const api = axios.create({
 let isRefreshing = false;
 let failedQueue = [];
 
+// 🔥 Rate limit tracking
+let rateLimitedUntil = 0;
+const RATE_LIMIT_BACKOFF = 10000; // 10 seconds
+
 const processQueue = (error, token = null) => {
   failedQueue.forEach(prom => {
     if (error) {
@@ -26,6 +30,14 @@ const processQueue = (error, token = null) => {
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
+    // 🔥 Check if we're still rate limited
+    const now = Date.now();
+    if (rateLimitedUntil > now) {
+      const waitTime = Math.ceil((rateLimitedUntil - now) / 1000);
+      console.warn(`⏳ Rate limited. Please wait ${waitTime}s before retrying.`);
+      return Promise.reject(new axios.Cancel(`Rate limited. Wait ${waitTime}s.`));
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -35,13 +47,39 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor with auto-refresh
+// Response interceptor with auto-refresh and rate limit handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 🔥 Handle 429 Rate Limiting
+    if (error.response?.status === 429) {
+      console.warn('⚠️ Rate limited by server (429)');
+      
+      // Check for Retry-After header
+      const retryAfter = error.response.headers['retry-after'];
+      const backoffTime = retryAfter 
+        ? parseInt(retryAfter) * 1000 
+        : RATE_LIMIT_BACKOFF;
+      
+      rateLimitedUntil = Date.now() + backoffTime;
+      
+      // Don't retry automatically - let user try again after backoff
+      error.message = `Too many requests. Please wait ${Math.ceil(backoffTime / 1000)} seconds.`;
+      return Promise.reject(error);
+    }
+
+    const requestUrl = originalRequest?.url || "";
+    const isAuthRequest =
+      requestUrl.includes("/auth/login") || requestUrl.includes("/auth/register");
+
+    // 🔥 Handle 401 Unauthorized with token refresh (skip auth endpoints)
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthRequest
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

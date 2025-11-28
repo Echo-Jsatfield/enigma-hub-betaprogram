@@ -1,5 +1,5 @@
-// src/pages/Profile.jsx - FIXED VERSION
-import React, { useState, useEffect } from "react";
+// src/pages/Profile.jsx - Next Gen Profile (self-profile, no react-router)
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -14,10 +14,10 @@ import {
   Zap,
   Shield,
   Clock,
-  Edit,
-  Save,
-  X,
   Link as LinkIcon,
+  Image as ImageIcon,
+  Activity,
+  Star,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
@@ -26,18 +26,29 @@ import api from "../../services/api";
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const { showAlert } = useModal();
+
   const [stats, setStats] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+
+  const [editingAvatar, setEditingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar || "");
   const [tempAvatar, setTempAvatar] = useState("");
+  const [editingBanner, setEditingBanner] = useState(false);
+  const [bannerUrl, setBannerUrl] = useState(user?.banner || "");
+  const [tempBanner, setTempBanner] = useState("");
+
+  // Achievements placeholder – safe to keep empty for now,
+  // later we can fill from /jobs/my-achievements or similar.
+  const [achievements] = useState([]);
 
   useEffect(() => {
     fetchProfileData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchProfileData = async () => {
+    setLoading(true);
     try {
       const [statsRes, jobsRes] = await Promise.all([
         api.get("/jobs/my-stats"),
@@ -45,9 +56,16 @@ export default function Profile() {
       ]);
 
       setStats(statsRes.data);
-      setRecentJobs(jobsRes.data.jobs || jobsRes.data);
+      setRecentJobs(jobsRes.data?.jobs || jobsRes.data || []);
     } catch (error) {
       console.error("Failed to fetch profile data:", error);
+      if (showAlert && typeof showAlert === "function") {
+        showAlert(
+          "Error",
+          error.response?.data?.error || "Failed to load profile data",
+          "error"
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -61,23 +79,70 @@ export default function Profile() {
 
       setAvatarUrl(tempAvatar);
       updateUser(response.data.user);
-      setEditing(false);
-      
-      if (showAlert && typeof showAlert === 'function') {
+      setEditingAvatar(false);
+
+      if (showAlert && typeof showAlert === "function") {
         showAlert("Success", "Avatar updated successfully!", "success");
       } else {
-        console.log("✅ Avatar updated successfully!");
         alert("Avatar updated successfully!");
       }
     } catch (error) {
       console.error("Failed to update avatar:", error);
-      
-      if (showAlert && typeof showAlert === 'function') {
-        showAlert("Error", error.response?.data?.error || "Failed to update avatar", "error");
+      const errorMsg =
+        error.response?.data?.error || "Failed to update avatar";
+      if (showAlert && typeof showAlert === "function") {
+        showAlert("Error", errorMsg, "error");
       } else {
-        const errorMsg = error.response?.data?.error || "Failed to update avatar";
-        console.error("❌", errorMsg);
         alert(`Error: ${errorMsg}`);
+      }
+    }
+  };
+
+  const handleSaveBanner = async () => {
+    try {
+      const response = await api.put("/users/me", {
+        banner: tempBanner,
+      });
+
+      setBannerUrl(tempBanner);
+      updateUser(response.data.user);
+      setEditingBanner(false);
+
+      if (showAlert && typeof showAlert === "function") {
+        showAlert("Success", "Banner updated successfully!", "success");
+      } else {
+        alert("Banner updated successfully!");
+      }
+    } catch (error) {
+      console.error("Failed to update banner:", error);
+      const errorMsg =
+        error.response?.data?.error || "Failed to update banner";
+      if (showAlert && typeof showAlert === "function") {
+        showAlert("Error", errorMsg, "error");
+      } else {
+        alert(`Error: ${errorMsg}`);
+      }
+    }
+  };
+
+  const handleClearBanner = async () => {
+    try {
+      const response = await api.put("/users/me", {
+        banner: null,
+      });
+
+      setBannerUrl("");
+      updateUser(response.data.user);
+      setEditingBanner(false);
+
+      if (showAlert && typeof showAlert === "function") {
+        showAlert("Success", "Banner cleared", "success");
+      }
+    } catch (error) {
+      const errorMsg =
+        error.response?.data?.error || "Failed to clear banner";
+      if (showAlert && typeof showAlert === "function") {
+        showAlert("Error", errorMsg, "error");
       }
     }
   };
@@ -98,124 +163,229 @@ export default function Profile() {
       rusmap: "bg-green-900 text-green-200",
     };
     return (
-      <span className={`px-2 py-0.5 text-xs rounded ${colors[modSource.toLowerCase()] || "bg-gray-700 text-gray-300"}`}>
+      <span
+        className={`px-2 py-0.5 text-xs rounded ${
+          colors[modSource.toLowerCase()] || "bg-slate-800 text-slate-200"
+        }`}
+      >
         {modSource}
       </span>
     );
   };
 
+  const completionRate = useMemo(() => {
+    if (!stats?.total_jobs) return 0;
+    return ((stats.total_completed || 0) / stats.total_jobs) * 100;
+  }, [stats]);
+
+  const safetyScore = useMemo(() => {
+    if (!stats?.total_jobs) return 100;
+    const flagged = stats.total_flagged || 0;
+    const clean = Math.max(stats.total_jobs - flagged, 0);
+    return (clean / stats.total_jobs) * 100;
+  }, [stats]);
+
+  const avgIncomePerJob = useMemo(() => {
+    if (!stats) return 0;
+    return Number(stats.avg_income || 0);
+  }, [stats]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="flex items-center justify-center h-full bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6a0dad]" />
       </div>
     );
   }
 
+  const safeStats = stats || {};
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Profile Header */}
+    <div className="p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+      {/* HEADER */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-purple-600 to-violet-700 rounded-lg p-8 text-white relative"
+        className="relative overflow-hidden rounded-2xl border text-white shadow-xl bg-gradient-to-r"
+        style={{
+          borderColor: "#2c1e3a",
+          backgroundImage:
+            "linear-gradient(to right, rgba(106,13,173,0.9), rgba(27,16,36,0.95), rgba(44,30,58,0.95))",
+        }}
       >
-        <button
-          onClick={() => {
-            setEditing(!editing);
-            setTempAvatar(avatarUrl || "");
-          }}
-          className="absolute top-4 right-4 p-2 bg-purple-800/50 hover:bg-purple-800 rounded-lg transition-colors"
-        >
-          <Edit className="w-5 h-5" />
-        </button>
+        {bannerUrl && (
+          <img
+            src={bannerUrl}
+            alt="Profile banner"
+            className="absolute inset-0 w-full h-full object-cover opacity-35"
+            onError={(e) => {
+              e.target.onerror = null;
+              setBannerUrl("");
+            }}
+          />
+        )}
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_#f8cc00_0,_transparent_55%),_radial-gradient(circle_at_bottom,_#6a0dad_0,_transparent_55%)]" />
+        <div className="relative p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          {/* LEFT: avatar + identity */}
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={user?.username}
+                  className="w-24 h-24 md:w-28 md:h-28 rounded-2xl object-cover border-4 border-[#6a0dad] shadow-xl shadow-black/70"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "";
+                    setAvatarUrl("");
+                  }}
+                />
+              ) : (
+                <div className="w-24 h-24 md:w-28 md:h-28 rounded-2xl bg-[#12051a] border-4 border-[#6a0dad] flex items-center justify-center shadow-xl shadow-black/70">
+                  <User className="w-12 h-12 text-purple-200" />
+                </div>
+              )}
 
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={user?.username}
-                className="w-24 h-24 rounded-full object-cover border-4 border-purple-800"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = "";
-                  setAvatarUrl("");
-                }}
-              />
-            ) : (
-              <div className="w-24 h-24 bg-purple-800 rounded-full flex items-center justify-center border-4 border-purple-900">
-                <User className="w-12 h-12" />
+              {/* Status pill – for future account state */}
+              <div className="absolute -bottom-3 left-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#12051a]/95 border border-[#2c1e3a] flex items-center gap-1">
+                <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                <span className="uppercase tracking-wide text-slate-100">
+                  Active
+                </span>
               </div>
-            )}
+            </div>
 
-            {editing && (
-              <div className="absolute -bottom-2 -right-2 p-1.5 bg-purple-900 rounded-full">
-                <Edit className="w-4 h-4" />
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
+                  {user?.username}
+                </h1>
+                {user?.roles?.includes("admin") && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-400/15 border border-amber-400/50 text-amber-200">
+                    <Shield className="h-3 w-3" />
+                    Admin
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide bg-sky-500/15 border border-sky-400/50 text-sky-200">
+                  <Activity className="h-3 w-3" />
+                  Driver
+                </span>
               </div>
-            )}
+
+              <div className="flex flex-wrap items-center gap-3 text-sm text-purple-100/90">
+                <div className="flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 opacity-80" />
+                  <span>{user?.email || "No email"}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 opacity-80" />
+                  <span className="capitalize">
+                    {user?.roles?.join(", ") || "Driver"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 opacity-80" />
+                  <span>
+                    Joined{" "}
+                    {user?.created_at
+                      ? new Date(user.created_at).toLocaleDateString()
+                      : "Unknown"}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex-1">
-            <h1 className="text-4xl font-bold mb-2">{user?.username}</h1>
-            <div className="flex items-center gap-4 text-purple-100">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <span>{user?.email || "No email"}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                <span className="capitalize">
-                  {user?.roles?.join(", ") || "Driver"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>
-                  Joined{" "}
-                  {user?.created_at
-                    ? new Date(user.created_at).toLocaleDateString()
-                    : "Unknown"}
-                </span>
-              </div>
+          {/* RIGHT: avatar edit + KPIs */}
+          <div className="flex flex-col gap-4 md:items-end">
+            {/* Avatar edit button */}
+            <button
+              onClick={() => {
+                setEditingAvatar((prev) => !prev);
+                setTempAvatar(avatarUrl || "");
+              }}
+              className="self-end inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#12051a]/80 hover:bg-[#1b1024] border border-[#2c1e3a] text-xs font-medium shadow-sm shadow-black/60 transition-colors"
+            >
+              <LinkIcon className="w-3.5 h-3.5 text-[#f8cc00]" />
+              <span>Edit Avatar</span>
+            </button>
+
+            {/* Banner edit button */}
+            <button
+              onClick={() => {
+                setEditingBanner((prev) => !prev);
+                setTempBanner(bannerUrl || "");
+              }}
+              className="self-end inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#12051a]/80 hover:bg-[#1b1024] border border-[#2c1e3a] text-xs font-medium shadow-sm shadow-black/60 transition-colors"
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-[#9d6bff]" />
+              <span>Edit Banner</span>
+            </button>
+
+            {/* KPI cards */}
+            <div className="grid grid-cols-3 gap-3 w-full md:w-[320px]">
+              <HeaderStat
+                label="Total Jobs"
+                value={safeStats.total_jobs || 0}
+                icon={Package}
+              />
+              <HeaderStat
+                label="Distance (km)"
+                value={Number(safeStats.total_distance || 0).toLocaleString()}
+                icon={TrendingUp}
+              />
+              <HeaderStat
+                label="Total Earnings"
+                value={
+                  "$" +
+                  Number(safeStats.total_income || 0).toLocaleString(
+                    undefined,
+                    { maximumFractionDigits: 0 }
+                  )
+                }
+                icon={DollarSign}
+              />
             </div>
           </div>
         </div>
 
-        {editing && (
+        {/* Avatar edit area */}
+        {editingAvatar && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className="mt-6 pt-6 border-t border-purple-500"
+            className="relative border-t px-6 py-4"
+            style={{
+              borderColor: "#2c1e3a",
+              backgroundColor: "#12051a",
+            }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <LinkIcon className="w-5 h-5 text-purple-200" />
               <input
                 type="text"
-                placeholder="Paste image URL (e.g., from Imgur)"
+                placeholder="Paste image URL (e.g., Imgur direct link)"
                 value={tempAvatar}
                 onChange={(e) => setTempAvatar(e.target.value)}
-                className="flex-1 px-4 py-2 bg-purple-800/50 border border-purple-500 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:border-purple-400"
+                className="flex-1 min-w-[200px] px-4 py-2 bg-[#1b1024] border border-[#2c1e3a] rounded-lg text-white placeholder-purple-300 focus:outline-none focus:border-purple-200"
               />
               <button
                 onClick={handleSaveAvatar}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 text-sm transition-colors"
               >
-                <Save className="w-4 h-4" />
                 Save
               </button>
               <button
                 onClick={() => {
-                  setEditing(false);
+                  setEditingAvatar(false);
                   setTempAvatar("");
                 }}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+                className="px-4 py-2 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
               >
-                <X className="w-4 h-4" />
                 Cancel
               </button>
             </div>
-            <p className="text-xs text-purple-200 mt-2 ml-8">
+            <p className="text-[11px] text-purple-200 mt-2 ml-8">
               Upload your image to{" "}
               <a
                 href="https://imgur.com"
@@ -225,229 +395,344 @@ export default function Profile() {
               >
                 Imgur
               </a>{" "}
-              or any image host, then paste the direct link here
+              or any image host, then paste the direct link above.
+            </p>
+          </motion.div>
+        )}
+
+        {/* Banner edit area */}
+        {editingBanner && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="relative border-t px-6 py-4"
+            style={{
+              borderColor: "#2c1e3a",
+              backgroundColor: "#12051a",
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <LinkIcon className="w-5 h-5 text-purple-200" />
+              <input
+                type="text"
+                placeholder="Paste banner image URL (e.g., Imgur direct link)"
+                value={tempBanner}
+                onChange={(e) => setTempBanner(e.target.value)}
+                className="flex-1 min-w-[200px] px-4 py-2 bg-[#1b1024] border border-[#2c1e3a] rounded-lg text-white placeholder-purple-300 focus:outline-none focus:border-purple-200"
+              />
+              <button
+                onClick={handleSaveBanner}
+                className="px-4 py-2 text-white rounded-lg flex items-center gap-2 text-sm transition-colors"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(135deg, #6A0DAD, #f8cc00)",
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={handleClearBanner}
+                className="px-4 py-2 bg-[#1b1024] border border-[#2c1e3a] text-slate-100 rounded-lg text-sm transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => {
+                  setEditingBanner(false);
+                  setTempBanner("");
+                }}
+                className="px-4 py-2 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-[11px] text-purple-200 mt-2 ml-8">
+              Upload your banner to Imgur or any image host, then paste the
+              direct link above.
             </p>
           </motion.div>
         )}
       </motion.div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <Package className="w-8 h-8 text-blue-400" />
-            <span className="text-3xl font-bold text-white">
-              {stats?.total_jobs || 0}
-            </span>
-          </div>
-          <h3 className="text-gray-400 text-sm mb-2">Total Jobs</h3>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-green-400">
-              ✓ {stats?.total_completed || 0} completed
-            </span>
-            <span className="text-red-400">
-              ✗ {stats?.total_cancelled || 0} cancelled
-            </span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <TrendingUp className="w-8 h-8 text-blue-400" />
-            <span className="text-3xl font-bold text-white">
-              {Number(stats?.total_distance || 0).toLocaleString()}
-            </span>
-          </div>
-          <h3 className="text-gray-400 text-sm mb-2">Total Distance (km)</h3>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">
-              {Number(stats?.total_normal_miles || 0).toFixed(0)} km normal
-            </span>
-            <span
-              className={getRaceMilesColor(stats?.avg_race_percentage || 0)}
-            >
-              ⚡ {Number(stats?.total_race_miles || 0).toFixed(0)} km racing
-            </span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <DollarSign className="w-8 h-8 text-yellow-400" />
-            <span className="text-3xl font-bold text-white">
-              ${Number(stats?.total_income || 0).toLocaleString()}
-            </span>
-          </div>
-          <h3 className="text-gray-400 text-sm mb-2">Total Earnings</h3>
-          <p className="text-xs text-green-400">
-            ${Number(stats?.avg_income || 0).toFixed(0)} avg per job
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <AlertCircle className="w-8 h-8 text-purple-400" />
-            <span className="text-3xl font-bold text-white">
-              {Number(stats?.avg_damage || 0).toFixed(1)}%
-            </span>
-          </div>
-          <h3 className="text-gray-400 text-sm mb-2">Avg. Damage</h3>
-          <p className="text-xs text-gray-400">Per completed job</p>
-        </motion.div>
-      </div>
-
-      {/* Performance Metrics */}
+      {/* MID GRID: Performance + Job breakdown + Safety + Achievements */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Award className="w-6 h-6 text-yellow-400" />
-            <h2 className="text-xl font-bold text-white">
-              Driving Performance
-            </h2>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Completion Rate</span>
-              <span className="text-white font-semibold">
-                {stats?.total_jobs > 0
-                  ? ((stats.total_completed / stats.total_jobs) * 100).toFixed(1)
-                  : 0}
-                %
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Avg. Race Miles</span>
-              <span
-                className={`font-semibold ${getRaceMilesColor(
-                  stats?.avg_race_percentage || 0
-                )}`}
-              >
-                {Number(stats?.avg_race_percentage || 0).toFixed(1)}%
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Avg. Delivery Time</span>
-              <span className="text-white font-semibold">
-                {stats?.avg_delivery_time
-                  ? `${Math.floor(stats.avg_delivery_time / 60)}m ${
-                      stats.avg_delivery_time % 60
-                    }s`
-                  : "N/A"}
-              </span>
-            </div>
-          </div>
-        </motion.div>
+        {/* LEFT 2/3 */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* 3 stats cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Driving Performance */}
+            <motion.div
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="rounded-2xl p-5 border shadow-lg"
+              style={{
+                backgroundColor: "#1b1024",
+                borderColor: "#2c1e3a",
+                boxShadow: "0 0 25px #000",
+              }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <Award className="w-5 h-5 text-[#f8cc00]" />
+                <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-100">
+                  Driving Performance
+                </h2>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">
+                    Completion Rate
+                  </span>
+                  <span className="text-slate-50 font-semibold">
+                    {completionRate.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">
+                    Avg. Race Miles
+                  </span>
+                  <span
+                    className={
+                      "font-semibold text-xs " +
+                      getRaceMilesColor(
+                        safeStats.avg_race_percentage || 0
+                      )
+                    }
+                  >
+                    {Number(
+                      safeStats.avg_race_percentage || 0
+                    ).toFixed(1)}
+                    %
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">
+                    Avg. Delivery Time
+                  </span>
+                  <span className="text-slate-50 font-semibold text-xs">
+                    {safeStats.avg_delivery_time
+                      ? `${Math.floor(
+                          safeStats.avg_delivery_time / 60
+                        )}m ${safeStats.avg_delivery_time % 60}s`
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <Package className="w-6 h-6 text-blue-400" />
-            <h2 className="text-xl font-bold text-white">Job Breakdown</h2>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Quick Jobs</span>
-              <span className="text-yellow-400 font-semibold">
-                {stats?.total_quick_jobs || 0}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Freight Market</span>
-              <span className="text-blue-400 font-semibold">
-                {(stats?.total_jobs || 0) - (stats?.total_quick_jobs || 0)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Modded Jobs</span>
-              <span className="text-purple-400 font-semibold">
-                {stats?.total_modded_jobs || 0}
-              </span>
-            </div>
-          </div>
-        </motion.div>
+              {/* Completion bar */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-[11px] text-slate-300 mb-1">
+                  <span>Completion</span>
+                  <span className="font-mono">
+                    {completionRate.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-400 via-sky-400 to-violet-400 rounded-full"
+                    style={{ width: `${Math.min(completionRate, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.7 }}
-          className="bg-gray-800 rounded-lg p-6 border border-gray-700"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <AlertCircle className="w-6 h-6 text-red-400" />
-            <h2 className="text-xl font-bold text-white">Safety Record</h2>
+            {/* Job Breakdown */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="rounded-2xl p-5 border shadow-lg"
+              style={{
+                backgroundColor: "#1b1024",
+                borderColor: "#2c1e3a",
+                boxShadow: "0 0 25px #000",
+              }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <Package className="w-5 h-5 text-sky-300" />
+                <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-100">
+                  Job Breakdown
+                </h2>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Quick Jobs</span>
+                  <span className="text-yellow-400 font-semibold text-xs">
+                    {safeStats.total_quick_jobs || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Freight Market</span>
+                  <span className="text-sky-300 font-semibold text-xs">
+                    {(safeStats.total_jobs || 0) -
+                      (safeStats.total_quick_jobs || 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Modded Jobs</span>
+                  <span className="text-purple-300 font-semibold text-xs">
+                    {safeStats.total_modded_jobs || 0}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Safety Record */}
+            <motion.div
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="rounded-2xl p-5 border shadow-lg"
+              style={{
+                backgroundColor: "#1b1024",
+                borderColor: "#2c1e3a",
+                boxShadow: "0 0 25px #000",
+              }}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <AlertCircle className="w-5 h-5 text-red-400" />
+                <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-100">
+                  Safety Record
+                </h2>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Flagged Jobs</span>
+                  <span className="text-red-400 font-semibold text-xs">
+                    {safeStats.total_flagged || 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Clean Jobs</span>
+                  <span className="text-emerald-300 font-semibold text-xs">
+                    {(safeStats.total_jobs || 0) -
+                      (safeStats.total_flagged || 0)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs">Safety Score</span>
+                  <span className="text-slate-50 font-semibold text-xs">
+                    {safetyScore.toFixed(0)}%
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-400 to-yellow-400 rounded-full"
+                    style={{ width: `${Math.min(safetyScore, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </motion.div>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Flagged Jobs</span>
-              <span className="text-red-400 font-semibold">
-                {stats?.total_flagged || 0}
+
+          {/* Achievements */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="rounded-2xl p-5 border shadow-lg"
+            style={{
+              backgroundColor: "#1b1024",
+              borderColor: "#2c1e3a",
+              boxShadow: "0 0 25px #000",
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-[#f8cc00]" />
+                <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-100">
+                  Achievements
+                </h2>
+              </div>
+            <span className="text-[11px] text-slate-400">
+                {achievements.filter((a) => a.unlocked).length} unlocked
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Clean Record</span>
-              <span className="text-green-400 font-semibold">
-                {(stats?.total_jobs || 0) - (stats?.total_flagged || 0)}
-              </span>
+
+            {achievements.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                Achievement system isn&apos;t live yet. Once you wire it in from
+                the backend, this will auto-fill from your jobs and mileage.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {achievements.map((a) => (
+                  <AchievementCard key={a.id} achievement={a} />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* RIGHT 1/3 – Earnings summary */}
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="rounded-2xl p-5 border shadow-lg"
+            style={{
+              backgroundColor: "#1b1024",
+              borderColor: "#2c1e3a",
+              boxShadow: "0 0 25px #000",
+            }}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <DollarSign className="w-5 h-5 text-emerald-300" />
+              <h2 className="text-sm font-semibold tracking-wide uppercase text-slate-100">
+                Earnings Summary
+              </h2>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400">Safety Score</span>
-              <span className="text-white font-semibold">
-                {(stats?.total_jobs || 0) > 0
-                  ? (
-                      ((stats.total_jobs - (stats.total_flagged || 0)) /
-                        stats.total_jobs) *
-                      100
-                    ).toFixed(0)
-                  : 100}
-                %
-              </span>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 text-xs">Total Earnings</span>
+                <span className="text-emerald-300 font-semibold text-xs">
+                  $
+                  {Number(safeStats.total_income || 0).toLocaleString(
+                    undefined,
+                    { maximumFractionDigits: 0 }
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 text-xs">
+                  Avg. Income / Job
+                </span>
+                <span className="text-slate-50 font-semibold text-xs">
+                  ${avgIncomePerJob.toFixed(0)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 text-xs">Total Jobs</span>
+                <span className="text-slate-100 font-semibold text-xs">
+                  {safeStats.total_jobs || 0}
+                </span>
+              </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
 
-      {/* Recent Jobs */}
+      {/* RECENT JOBS */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8 }}
-        className="bg-gray-800 rounded-lg p-6 border border-gray-700"
+        transition={{ delay: 0.4 }}
+        className="rounded-2xl p-6 border shadow-xl"
+        style={{
+          backgroundColor: "#1b1024",
+          borderColor: "#2c1e3a",
+          boxShadow: "0 0 30px #000",
+        }}
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Clock className="w-6 h-6 text-purple-400" />
-            <h2 className="text-xl font-bold text-white">Your Recent Jobs</h2>
+            <Clock className="w-5 h-5 text-[#9d6bff]" />
+            <h2 className="text-sm md:text-base font-semibold text-slate-100">
+              Recent Jobs
+            </h2>
           </div>
-          <span className="text-sm text-gray-400">
+          <span className="text-xs text-slate-400">
             {recentJobs.length} jobs shown
           </span>
         </div>
@@ -456,36 +741,42 @@ export default function Profile() {
           {recentJobs.length > 0 ? (
             recentJobs.map((job) => (
               <div
-                key={job.id}
-                className="p-4 bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
+                key={job.id || job.job_number}
+                className="p-4 rounded-xl border transition-colors"
+                style={{
+                  backgroundColor: "#12051a",
+                  borderColor: "#2c1e3a",
+                }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-slate-100">
                       {job.cargo_display || "Unknown Cargo"}
                     </span>
                     {job.is_quick_job && (
-                      <Zap className="w-4 h-4 text-yellow-400" />
+                      <Zap className="w-4 h-4 text-[#f8cc00]" />
                     )}
                     {job.mod_source && getModBadge(job.mod_source)}
                   </div>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                      className={`px-3 py-1 text-[11px] font-semibold rounded-full ${
                         job.status === "completed"
-                          ? "bg-green-900 text-green-200"
+                          ? "bg-emerald-900 text-emerald-200"
                           : job.status === "active"
-                          ? "bg-blue-900 text-blue-200"
+                          ? "bg-sky-900 text-sky-200"
                           : "bg-red-900 text-red-200"
                       }`}
                     >
                       {job.status}
                     </span>
-                    <span className="text-xs text-gray-500">{job.game}</span>
+                    <span className="text-[11px] text-slate-400">
+                      {job.game}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
+                <div className="flex items-center gap-2 text-xs text-slate-300 mb-3">
                   <MapPin className="w-4 h-4" />
                   <span>
                     {job.pickup_city_display || "Unknown"} →{" "}
@@ -494,31 +785,44 @@ export default function Profile() {
                 </div>
 
                 {job.status === "completed" && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-gray-700">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-slate-800">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Distance</p>
-                      <p className="text-sm font-semibold text-white">
+                      <p className="text-[11px] text-slate-500 mb-1">
+                        Distance
+                      </p>
+                      <p className="text-xs font-semibold text-slate-100">
                         {Number(job.actual_distance || 0).toFixed(0)} km
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Income</p>
-                      <p className="text-sm font-semibold text-green-400">
-                        ${Number(job.total_income || 0).toLocaleString()}
+                      <p className="text-[11px] text-slate-500 mb-1">
+                        Income
+                      </p>
+                      <p className="text-xs font-semibold text-emerald-300">
+                        $
+                        {Number(job.total_income || 0).toLocaleString(
+                          undefined,
+                          { maximumFractionDigits: 0 }
+                        )}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Damage</p>
-                      <p className="text-sm font-semibold text-orange-400">
+                      <p className="text-[11px] text-slate-500 mb-1">
+                        Damage
+                      </p>
+                      <p className="text-xs font-semibold text-orange-400">
                         {Number(job.damage_percent || 0).toFixed(1)}%
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Race Miles</p>
+                      <p className="text-[11px] text-slate-500 mb-1">
+                        Race Miles
+                      </p>
                       <p
-                        className={`text-sm font-semibold ${getRaceMilesColor(
-                          job.race_percentage
-                        )}`}
+                        className={
+                          "text-xs font-semibold " +
+                          getRaceMilesColor(job.race_percentage)
+                        }
                       >
                         {Number(job.race_percentage || 0).toFixed(1)}%
                       </p>
@@ -527,15 +831,16 @@ export default function Profile() {
                 )}
 
                 {job.status === "cancelled" && (
-                  <p className="text-sm text-red-400 pt-3 border-t border-gray-700">
+                  <p className="text-xs text-red-400 pt-3 border-t border-slate-800">
                     Cancelled:{" "}
-                    {job.cancel_reason?.replace(/_/g, " ") || "Unknown reason"}
+                    {job.cancel_reason?.replace(/_/g, " ") ||
+                      "Unknown reason"}
                   </p>
                 )}
 
                 {job.flagged && (
-                  <div className="mt-3 p-2 bg-red-900/20 border border-red-800 rounded">
-                    <p className="text-xs text-red-400 font-semibold">
+                  <div className="mt-3 p-2 bg-red-950/40 border border-red-800 rounded">
+                    <p className="text-[11px] text-red-300 font-semibold">
                       🚨 Flagged:{" "}
                       {job.flag_reasons?.join(", ").replace(/_/g, " ") ||
                         "Review required"}
@@ -543,21 +848,115 @@ export default function Profile() {
                   </div>
                 )}
 
-                <p className="text-xs text-gray-500 mt-3">
+                <p className="text-[11px] text-slate-500 mt-3">
                   {job.completed_at
-                    ? `Completed ${new Date(job.completed_at).toLocaleString()}`
-                    : `Started ${new Date(job.started_at).toLocaleString()}`}
+                    ? `Completed ${new Date(
+                        job.completed_at
+                      ).toLocaleString()}`
+                    : job.started_at
+                    ? `Started ${new Date(
+                        job.started_at
+                      ).toLocaleString()}`
+                    : ""}
                 </p>
               </div>
             ))
           ) : (
-            <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No jobs yet. Start driving!</p>
+            <div className="text-center py-10">
+              <Package className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <p className="text-sm text-slate-400">
+                No jobs yet. Start driving!
+              </p>
             </div>
           )}
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+/* === SMALL SUBCOMPONENTS === */
+
+function HeaderStat({ label, value, icon: Icon }) {
+  return (
+    <div
+      className="rounded-xl px-3 py-2.5 border shadow-sm"
+      style={{
+        backgroundColor: "#12051a",
+        borderColor: "#2c1e3a",
+        boxShadow: "0 0 10px #000",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-300/80">{label}</span>
+        <Icon className="h-3.5 w-3.5 text-[#9d6bff]" />
+      </div>
+      <div className="mt-1 text-sm font-semibold text-slate-50 truncate">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function AchievementCard({ achievement }) {
+  const { name, description, rarity, progress, unlocked, unlocked_at } =
+    achievement;
+
+  const rarityStyles =
+    {
+      Common: "bg-[#1b1024] border-[#2c1e3a]",
+      Rare: "bg-sky-900/60 border-sky-500/70",
+      Epic: "bg-purple-900/60 border-purple-500/80",
+      Legendary: "bg-amber-900/70 border-amber-500/80",
+    }[rarity] || "bg-[#1b1024] border-[#2c1e3a]";
+
+  return (
+    <div
+      className={`rounded-xl border px-3 py-3 flex gap-3 items-start shadow-sm shadow-black/60 ${rarityStyles}`}
+    >
+      <div className="mt-0.5">
+        <div className="h-8 w-8 rounded-lg bg-[#12051a] flex items-center justify-center border border-[#2c1e3a]">
+          <Star className="h-4 w-4 text-amber-300" />
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-semibold text-slate-50 truncate">
+              {name}
+            </div>
+            <div className="text-[11px] text-slate-300 line-clamp-2">
+              {description}
+            </div>
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-slate-300">
+            {rarity}
+          </span>
+        </div>
+
+        <div className="mt-2 space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-slate-300">
+            <span>{unlocked ? "Completed" : "Progress"}</span>
+            <span className="font-mono">{Math.round(progress)}%</span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className={
+                "h-full rounded-full " +
+                (unlocked
+                  ? "bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500"
+                  : "bg-gradient-to-r from-sky-400 via-sky-500 to-violet-500")
+              }
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            />
+          </div>
+          {unlocked && unlocked_at && (
+            <div className="text-[10px] text-slate-400">
+              Unlocked {new Date(unlocked_at).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

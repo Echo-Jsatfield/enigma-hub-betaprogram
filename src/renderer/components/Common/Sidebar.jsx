@@ -15,22 +15,29 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
-import EnigmaLogo from '../../assets/enigma-logo.svg';
-import { TextAlignJustify } from 'lucide-react';
+import EnigmaLogo from "../../assets/enigma-logo.svg";
+import { TextAlignJustify } from "lucide-react";
 
-
-export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurrentPage }) {
+export default function Sidebar({
+  collapsed,
+  setCollapsed,
+  currentPage,
+  setCurrentPage,
+}) {
   const { user, logout, isStaff, getRolesString } = useAuth();
   const { confirm } = useModal();
-  const [appVersion, setAppVersion] = useState('...');
+  const [appVersion, setAppVersion] = useState("...");
 
   useEffect(() => {
     // Get app version from Electron
-    window.electronAPI?.getAppVersion?.().then(version => {
-      setAppVersion(version);
-    }).catch(() => {
-      setAppVersion('1.0.0');
-    });
+    window.electronAPI
+      ?.getAppVersion?.()
+      .then((version) => {
+        setAppVersion(version);
+      })
+      .catch(() => {
+        setAppVersion("1.0.0");
+      });
   }, []);
 
   const handleLogout = async () => {
@@ -39,9 +46,9 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
       message: "Are you sure you want to logout?",
       confirmText: "Logout",
       cancelText: "Stay",
-      type: "warning"
+      type: "warning",
     });
-    
+
     if (confirmed) {
       await logout();
     }
@@ -53,23 +60,38 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
     <aside
       className={`${
         collapsed ? "w-16" : "w-64"
-      } bg-[#1b1024]/90 border-r border-[#2c1e3a] transition-all duration-300 flex flex-col backdrop-blur-md`}
+      } transition-all duration-300 flex flex-col border-r shadow-xl`}
+      style={{
+        background: "#0b0c1a", // match auth panel background
+        borderColor: "#2d1b5c",
+      }}
     >
       {/* Logo + Collapse Button */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2c1e3a]">
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b"
+        style={{ borderColor: "#2d1b5c" }}
+      >
         {collapsed ? (
           <img src={EnigmaLogo} alt="E" className="w-7 h-7 mx-auto" />
         ) : (
           <div className="flex items-center gap-2">
             <img src={EnigmaLogo} alt="Enigma Hub" className="w-6 h-6" />
-            <span className="font-semibold text-lg text-yellow-400 tracking-wide">
-              ENIGMA HUB
-            </span>
+            <div className="flex flex-col">
+              <span className="font-semibold text-sm tracking-[0.18em] uppercase text-slate-100">
+                Enigma Logistics
+              </span>
+              <span
+                className="text-[11px] font-semibold tracking-wide"
+                style={{ color: "#f8cc00" }} // gold accent like TitleBar
+              >
+                VTC HUB CONTROL
+              </span>
+            </div>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="text-gray-400 hover:text-yellow-400 transition"
+          className="text-slate-400 hover:text-[#f8cc00] transition-colors"
           title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           <TextAlignJustify className="w-5 h-5" />
@@ -77,7 +99,7 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
       </div>
 
       {/* Nav Items */}
-      <nav className="flex flex-col mt-2 gap-1">
+      <nav className="flex-1 flex flex-col mt-2 gap-2 overflow-y-auto px-2 pb-4">
         <NavItem
           icon={<LayoutDashboard size={18} />}
           label="Dashboard"
@@ -160,24 +182,35 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
       </nav>
 
       {/* User Info + Logout */}
-      <div className="mt-auto border-t border-[#2c1e3a]">
-        <div className="p-3 border-b border-[#2c1e3a]">
+      <div
+        className="mt-auto border-t"
+        style={{ borderColor: "#2d1b5c" }}
+      >
+        <div
+          className="p-3 border-b"
+          style={{ borderColor: "#2d1b5c" }}
+        >
           {!collapsed ? (
             <div className="flex items-center gap-3">
               {profilePicture && profilePicture.trim() !== "" ? (
                 <img
                   src={profilePicture}
                   alt={user?.username}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-[#f8cc00]"
+                  className="w-10 h-10 rounded-full object-cover border-2"
+                  style={{ borderColor: "#f8cc00" }} // gold ring
                   onError={(e) => {
                     e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "flex";
+                    if (e.target.nextElementSibling) {
+                      e.target.nextElementSibling.style.display = "flex";
+                    }
                   }}
                 />
               ) : null}
               <div
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f8cc00] to-[#6d28d9] flex items-center justify-center text-white font-bold"
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-950"
                 style={{
+                  backgroundImage:
+                    "linear-gradient(135deg, #6A0DAD, #f8cc00)", // Enigma purple → gold
                   display:
                     profilePicture && profilePicture.trim() !== ""
                       ? "none"
@@ -187,10 +220,10 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
                 {user?.username?.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-200 truncate">
+                <p className="text-sm font-medium text-slate-100 truncate">
                   {user?.username}
                 </p>
-                <p className="text-xs text-gray-500 uppercase">
+                <p className="text-[11px] text-slate-400 uppercase tracking-wide">
                   {getRolesString()}
                 </p>
               </div>
@@ -201,16 +234,21 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
                 <img
                   src={profilePicture}
                   alt={user?.username}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-[#f8cc00]"
+                  className="w-10 h-10 rounded-full object-cover border-2"
+                  style={{ borderColor: "#f8cc00" }}
                   onError={(e) => {
                     e.target.style.display = "none";
-                    e.target.nextElementSibling.style.display = "flex";
+                    if (e.target.nextElementSibling) {
+                      e.target.nextElementSibling.style.display = "flex";
+                    }
                   }}
                 />
               ) : null}
               <div
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#f8cc00] to-[#6d28d9] flex items-center justify-center text-white font-bold"
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-slate-950"
                 style={{
+                  backgroundImage:
+                    "linear-gradient(135deg, #6A0DAD, #f8cc00)",
                   display:
                     profilePicture && profilePicture.trim() !== ""
                       ? "none"
@@ -229,28 +267,43 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, setCurre
           title="Logout"
         >
           <LogOut size={18} />
-          {!collapsed && <span>Logout</span>}
+          {!collapsed && (
+            <span className="text-sm font-medium tracking-wide">Logout</span>
+          )}
         </button>
 
-        {/* Fancy Status Bar Footer */}
+        {/* Status Bar Footer */}
         {!collapsed ? (
-          <div className="border-t border-[#2c1e3a]">
-            <div className="flex items-center justify-between px-3 py-2 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-gray-500">Online</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-gray-500">Build</span>
-                <span className="text-purple-400 font-mono font-semibold">
-                  {appVersion}
-                </span>
-              </div>
+          <div
+            className="border-t px-3 py-2 flex items-center justify-between text-[11px]"
+            style={{ borderColor: "#2d1b5c" }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <span className="text-slate-400">Online</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">Build</span>
+              <span
+                className="font-mono font-semibold"
+                style={{ color: "#6A0DAD" }} // Enigma purple for version
+              >
+                {appVersion}
+              </span>
             </div>
           </div>
         ) : (
-          <div className="p-2 text-center border-t border-[#2c1e3a]">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse mx-auto" />
+          <div
+            className="p-2 text-center border-t"
+            style={{ borderColor: "#2d1b5c" }}
+          >
+            <span className="relative flex h-1.5 w-1.5 mx-auto">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+            </span>
           </div>
         )}
       </div>
@@ -263,15 +316,34 @@ function NavItem({ icon, label, collapsed, active, onClick }) {
     <motion.button
       whileHover={{ x: 5 }}
       onClick={onClick}
-      className={`flex items-center gap-3 py-2 px-4 transition-all duration-150 ${
+      className={`flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 ${
         active
-          ? "bg-[#f8cc00] text-[#18122b]"
-          : "text-gray-400 hover:text-yellow-400 hover:bg-[#2a1b3a]"
+          ? "text-slate-50 shadow-lg shadow-black/50 border-transparent"
+          : "text-slate-400 hover:text-slate-50 hover:border-[#6A0DAD]/60"
       }`}
+      style={
+        active
+          ? {
+              backgroundImage:
+                "linear-gradient(135deg, #6A0DAD, #f8cc00)", // Enigma purple → gold
+            }
+          : {
+              backgroundColor: "#0f0f20",
+              borderColor: "#2d1b5c",
+            }
+      }
       title={collapsed ? label : undefined}
     >
-      {icon}
-      {!collapsed && <span>{label}</span>}
+      <div
+        className={`flex items-center justify-center ${
+          active ? "text-slate-950" : "text-slate-300"
+        }`}
+      >
+        {icon}
+      </div>
+      {!collapsed && (
+        <span className="text-sm font-medium tracking-wide">{label}</span>
+      )}
     </motion.button>
   );
 }

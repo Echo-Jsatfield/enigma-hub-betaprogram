@@ -1,5 +1,5 @@
 // src/context/AuthContext.jsx
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import api from "../services/api";
 
 const AuthContext = createContext();
@@ -31,16 +31,38 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authMode, setAuthMode] = useState("login");
+  
+  // 🔥 CRITICAL FIX: Prevent multiple simultaneous auth checks
+  const isCheckingAuth = useRef(false);
+  const lastAuthCheck = useRef(0);
+  const AUTH_CHECK_COOLDOWN = 5000; // 5 seconds between checks
 
   useEffect(() => {
     checkAuth();
   }, []);
 
   const checkAuth = async () => {
+    // 🔥 Prevent concurrent checks
+    if (isCheckingAuth.current) {
+      console.log("⏭️ Auth check already in progress, skipping");
+      return;
+    }
+
+    // 🔥 Rate limit checks (5 second cooldown)
+    const now = Date.now();
+    if (now - lastAuthCheck.current < AUTH_CHECK_COOLDOWN) {
+      console.log("⏭️ Auth check on cooldown, skipping");
+      setLoading(false);
+      return;
+    }
+
+    isCheckingAuth.current = true;
+    lastAuthCheck.current = now;
+
     try {
       const token = localStorage.getItem("token");
       const refreshToken = localStorage.getItem("refreshToken");
-      const sessionToken = localStorage.getItem("sessionToken");  // ✅ Get session token
+      const sessionToken = localStorage.getItem("sessionToken");
 
       if (token && refreshToken) {
         const response = await api.get("/auth/profile");
@@ -48,55 +70,77 @@ export const AuthProvider = ({ children }) => {
 
         setUser(profile);
 
-        // ✅ Use session token for telemetry (30 days vs 15 min)
         notifyTelemetryLogin({
           ...profile,
-          token: sessionToken || token,  // Fallback to access token if no session token
+          token: sessionToken || token,
         });
       }
     } catch (error) {
       console.error("Auth check failed:", error);
+      
+      // 🔥 Handle 429 specifically
+      if (error.response?.status === 429) {
+        console.warn("⚠️ Rate limited during auth check. Will retry on next login attempt.");
+        // Don't clear tokens on rate limit
+      } else if (error.response?.status === 401) {
+        // Only clear on actual auth failure
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("sessionToken");
+      }
     } finally {
       setLoading(false);
+      isCheckingAuth.current = false;
     }
   };
 
   const login = async (username, password) => {
+    // 🔥 Prevent concurrent login attempts
+    if (isCheckingAuth.current) {
+      return { success: false, message: "Please wait..." };
+    }
+
     try {
       setLoading(true);
       setError(null);
+      isCheckingAuth.current = true;
 
       const response = await api.post("/auth/login", { username, password });
-      const { token, refreshToken, sessionToken, user: userData } = response.data;  // ✅ Extract sessionToken
+      const { token, refreshToken, sessionToken, user: userData } = response.data;
 
       console.log('🔥 LOGIN RESPONSE:', response.data);
       console.log('🔥 User data:', userData);
       console.log('🔥 User roles:', userData.roles);
-      console.log('🔥 Roles type:', typeof userData.roles);
-      console.log('🔥 Is array?:', Array.isArray(userData.roles));
 
       localStorage.setItem("token", token);
       localStorage.setItem("refreshToken", refreshToken);
-      localStorage.setItem("sessionToken", sessionToken);  // ✅ Store session token
+      localStorage.setItem("sessionToken", sessionToken);
 
       setUser(userData);
 
-      console.log('🔥 User set in state:', userData);
-      console.log('🔥 isAdmin() check:', userData.roles?.includes('admin'));
-
-      // ✅ Use session token for telemetry (lasts 30 days, not 15 min)
       notifyTelemetryLogin({
         ...userData,
         token: sessionToken,
       });
 
+      // Update last check time to prevent immediate re-check
+      lastAuthCheck.current = Date.now();
+
       return { success: true };
     } catch (error) {
+      // 🔥 Handle 429 with helpful message
+      if (error.response?.status === 429) {
+        const errorMessage = "Too many login attempts. Please wait a moment and try again.";
+        setError(errorMessage);
+        return { success: false, message: errorMessage };
+      }
+      
       const errorMessage = error.response?.data?.error || "Login failed";
       setError(errorMessage);
       return { success: false, message: errorMessage };
     } finally {
       setLoading(false);
+      isCheckingAuth.current = false;
     }
   };
 
@@ -132,10 +176,14 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("sessionToken");  // ✅ Clear session token
+    localStorage.removeItem("sessionToken");
     setUser(null);
     setError(null);
     notifyTelemetryLogout();
+    
+    // Reset auth check refs
+    isCheckingAuth.current = false;
+    lastAuthCheck.current = 0;
   };
 
   const updateUser = (userData) => {
@@ -166,7 +214,6 @@ export const AuthProvider = ({ children }) => {
       return "No Role";
     }
     
-    // Ensure roles is an array
     const rolesArray = Array.isArray(user.roles) ? user.roles : [user.roles];
     
     if (rolesArray.length === 0) {

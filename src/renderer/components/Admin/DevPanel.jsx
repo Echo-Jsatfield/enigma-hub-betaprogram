@@ -238,22 +238,22 @@ export default function DevPanel() {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 text-white rounded-2xl shadow-2xl p-6 w-full max-w-3xl border border-purple-500/30 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1b1024] text-white rounded-2xl shadow-2xl p-6 w-full max-w-3xl border border-[#2c1e3a] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Lock className="text-purple-400" size={28} />
+            <Lock className="" size={28} style={{ color: '#6A0DAD' }} />
             <div>
               <h2 className="text-2xl font-bold">Developer Panel</h2>
-              <p className="text-sm text-gray-400">Current: v{currentVersion}</p>
+              <p className="text-sm text-slate-400">Current: v{currentVersion}</p>
             </div>
           </div>
-          <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white text-2xl">✕</button>
+          <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white text-2xl">✕</button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* LEFT COLUMN - Release Management */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-purple-400 border-b border-purple-500/30 pb-2">
+            <h3 className="text-lg font-semibold" style={{ color: '#6A0DAD' }}>
               📦 Release Management
             </h3>
 
@@ -261,14 +261,14 @@ export default function DevPanel() {
               <button
                 onClick={handleQuickPush}
                 disabled={isUploading}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+                className="bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d] disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
               >
                 <GitBranch size={18} />
                 Quick Push
               </button>
               <button
                 onClick={handleUninstall}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+                className="bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d] text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
               >
                 <Trash2 size={18} />
                 Uninstall
@@ -282,7 +282,7 @@ export default function DevPanel() {
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
                 placeholder="1.0.6"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                className="w-full bg-[#12051a] border border-[#2c1e3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#6A0DAD] focus:ring-1 focus:ring-[#6A0DAD]"
               />
             </div>
 
@@ -293,14 +293,14 @@ export default function DevPanel() {
                 onChange={(e) => setReleaseNotes(e.target.value)}
                 placeholder="- Fixed overlay crash&#10;- Added new features&#10;- Performance improvements"
                 rows={6}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 resize-none font-mono text-sm"
+                className="w-full bg-[#12051a] border border-[#2c1e3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#6A0DAD] focus:ring-1 focus:ring-[#6A0DAD] resize-none font-mono text-sm"
               />
             </div>
 
             <button
               onClick={handlePushRelease}
               disabled={isUploading}
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+              className="w-full bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d] disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition"
             >
               {isUploading ? (
                 <>
@@ -323,7 +323,7 @@ export default function DevPanel() {
 
           {/* RIGHT COLUMN - Update Manager */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-green-400 border-b border-green-500/30 pb-2">
+            <h3 className="text-lg font-semibold" style={{ color: '#6A0DAD' }}>
               🔄 Update Manager
             </h3>
 
@@ -333,7 +333,7 @@ export default function DevPanel() {
                 value={selectedVersion}
                 onChange={(e) => setSelectedVersion(e.target.value)}
                 disabled={isChecking || availableVersions.length === 0}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 disabled:opacity-50"
+                className="w-full bg-[#12051a] border border-[#2c1e3a] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#6A0DAD] focus:ring-1 focus:ring-[#6A0DAD] disabled:opacity-50"
               >
                 {availableVersions.length === 0 ? (
                   <option>No versions available</option>
@@ -349,18 +349,18 @@ export default function DevPanel() {
             </div>
 
             {selectedRelease && (
-              <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
+              <div className="bg-[#12051a]/50 border border-[#2c1e3a] rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-gray-300">
+                  <span className="text-sm font-semibold text-slate-300">
                     {selectedRelease.name}
                   </span>
                   {isNewerVersion && (
-                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
                       Newer
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-400 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                <div className="text-xs text-slate-400 max-h-32 overflow-y-auto whitespace-pre-wrap">
                   {selectedRelease.notes}
                 </div>
               </div>
@@ -370,7 +370,7 @@ export default function DevPanel() {
               <button
                 onClick={handleCheckForUpdates}
                 disabled={isChecking || isDownloading}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+                className="flex-1 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
               >
                 {isChecking ? (
                   <>
@@ -388,7 +388,7 @@ export default function DevPanel() {
               <button
                 onClick={handleInstallUpdate}
                 disabled={!selectedRelease?.downloadUrl || isDownloading || selectedVersion === currentVersion}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition"
+                className="flex-1 disabled:opacity-50 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
               >
                 {isDownloading ? (
                   <>
@@ -410,9 +410,9 @@ export default function DevPanel() {
             </div>
 
             {isDownloading && (
-              <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="w-full bg-[#12051a] rounded-full h-2 overflow-hidden">
                 <div 
-                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-full transition-all duration-300"
+                  className="bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] h-full transition-all duration-300"
                   style={{ width: `${downloadProgress}%` }}
                 />
               </div>
@@ -427,7 +427,7 @@ export default function DevPanel() {
 
         {/* Status Bar */}
         {status && (
-          <div className="mt-6 bg-gray-700/70 border border-gray-600 rounded-lg p-4 text-sm font-mono">
+          <div className="mt-6 bg-[#12051a]/70 border border-[#2c1e3a] rounded-lg p-4 text-sm font-mono">
             {status}
           </div>
         )}

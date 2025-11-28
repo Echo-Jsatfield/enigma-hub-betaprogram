@@ -11,6 +11,8 @@ export default function AuthLayout() {
   const [localError, setLocalError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const errorMessage = localError || error;
+  const showErrorState = Boolean(errorMessage);
 
   useEffect(() => {
     setUsername("");
@@ -42,7 +44,10 @@ export default function AuthLayout() {
     if (result.success) {
       setSuccessMessage("Login successful! Redirecting...");
     } else {
-      setLocalError(result.error || "Login failed. Please try again.");
+      setLocalError(
+        result.message || result.error || "Invalid username or password."
+      );
+      setPassword("");
     }
 
     setBusy(false);
@@ -56,11 +61,11 @@ export default function AuthLayout() {
         {/* LEFT SIDE - Truck Image Section */}
         <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
           {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#2a1357] via-[#1a1a2e] to-[#0a0a0f]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2a0e4a] via-[#1b1024] to-[#12051a]" />
           
           {/* Animated Glows */}
-          <div className="absolute top-20 left-20 w-96 h-96 bg-[#a855f7]/20 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-[#fbbf24]/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-16 left-12 w-96 h-96 bg-[#6A0DAD]/25 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-14 right-16 w-80 h-80 bg-[#f8cc00]/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
           
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center justify-center w-full p-12 text-center">
@@ -71,7 +76,7 @@ export default function AuthLayout() {
               className="mb-8"
             >
               <div className="text-9xl mb-6">🚛</div>
-              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-[#a855f7] to-[#fbbf24] bg-clip-text text-transparent">
+              <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
               <p className="text-xl text-gray-400">
@@ -119,7 +124,7 @@ export default function AuthLayout() {
             {/* Logo for mobile */}
             <div className="lg:hidden text-center mb-8">
               <div className="text-6xl mb-4">🚛</div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#a855f7] to-[#fbbf24] bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
             </div>
@@ -132,13 +137,13 @@ export default function AuthLayout() {
             </p>
 
             {/* Error Message */}
-            {(localError || error) && (
+            {showErrorState && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-6 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm"
               >
-                {localError || error}
+                {errorMessage}
               </motion.div>
             )}
 
@@ -164,7 +169,14 @@ export default function AuthLayout() {
                   onChange={(e) => setUsername(e.target.value)}
                   disabled={loading || busy}
                   autoComplete="username"
-                  className="w-full bg-[#0b0c1a] border border-[#2d1b5c] text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#a855f7] transition disabled:opacity-50"
+                  aria-invalid={showErrorState}
+                  className={`w-full bg-[#0b0c1a] border ${
+                    showErrorState ? "border-red-500/70" : "border-[#2d1b5c]"
+                  } text-white rounded-lg px-4 py-3 focus:outline-none transition disabled:opacity-50 ${
+                    showErrorState
+                      ? "focus:border-red-400 focus:ring-1 focus:ring-red-400/50"
+                      : "focus:border-[#a855f7]"
+                  }`}
                   placeholder="Enter your username"
                 />
               </div>
@@ -179,16 +191,28 @@ export default function AuthLayout() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading || busy}
                   autoComplete="current-password"
-                  className="w-full bg-[#0b0c1a] border border-[#2d1b5c] text-white rounded-lg px-4 py-3 focus:outline-none focus:border-[#a855f7] transition disabled:opacity-50"
+                  aria-invalid={showErrorState}
+                  className={`w-full bg-[#0b0c1a] border ${
+                    showErrorState ? "border-red-500/70" : "border-[#2d1b5c]"
+                  } text-white rounded-lg px-4 py-3 focus:outline-none transition disabled:opacity-50 ${
+                    showErrorState
+                      ? "focus:border-red-400 focus:ring-1 focus:ring-red-400/50"
+                      : "focus:border-[#a855f7]"
+                  }`}
                   placeholder="Enter your password"
                 />
+                {showErrorState && (
+                  <p className="mt-2 text-sm text-red-400">
+                    {errorMessage || "Invalid username or password."}
+                  </p>
+                )}
               </div>
 
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading || busy}
-                className="w-full bg-gradient-to-r from-[#a855f7] to-[#fbbf24] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#a855f7]/50"
+                className="w-full bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#6A0DAD]/50"
               >
                 {loading || busy ? (
                   <span className="flex items-center justify-center gap-2">
@@ -207,7 +231,7 @@ export default function AuthLayout() {
                 <button
                   onClick={() => !(loading || busy) && setAuthMode("register")}
                   disabled={loading || busy}
-                  className="text-[#fbbf24] hover:text-[#ffdb4d] font-medium transition disabled:opacity-50"
+                  className="text-[#f8cc00] hover:text-[#ffdb4d] font-medium transition disabled:opacity-50"
                 >
                   Register here
                 </button>
