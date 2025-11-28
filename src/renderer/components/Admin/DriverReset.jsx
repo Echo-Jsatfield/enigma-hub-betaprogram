@@ -1,7 +1,7 @@
 // src/components/Admin/DriverReset.jsx
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, RotateCcw, AlertTriangle, Search, User, X } from "lucide-react";
+import { Trash2, RotateCcw, AlertTriangle, Search, User, X, TrendingUp, Award, MapPin, Clock } from "lucide-react";
 import api from "../../services/api";
 
 // Custom Confirmation Modal
@@ -32,19 +32,19 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText,
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className={`bg-gradient-to-br ${bgColor} border ${borderColor} rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl`}
+        className={`bg-gradient-to-br ${bgColor} border ${borderColor} rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl`}
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-white flex items-center gap-2">
             <AlertTriangle className="w-6 h-6" />
             {title}
           </h3>
-          <button onClick={onClose} className="text-gray-300 hover:text-white">
+          <button onClick={onClose} className="text-gray-300 hover:text-white transition">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-gray-100 mb-4 whitespace-pre-line">{message}</p>
+        <p className="text-gray-100 mb-4 whitespace-pre-line leading-relaxed">{message}</p>
 
         {requiresInput && (
           <input
@@ -52,7 +52,7 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText,
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Type here to confirm..."
-            className="w-full px-4 py-2 bg-gray-900/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 mb-4"
+            className="w-full px-4 py-2.5 bg-gray-900/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 mb-4"
             autoFocus
           />
         )}
@@ -60,15 +60,15 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText,
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            className="flex-1 px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all font-medium"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className={`flex-1 px-4 py-2 ${
+            className={`flex-1 px-4 py-2.5 ${
               type === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-orange-600 hover:bg-orange-700"
-            } text-white rounded-lg transition-colors font-semibold`}
+            } text-white rounded-lg transition-all font-semibold shadow-lg`}
           >
             {confirmText || "Confirm"}
           </button>
@@ -212,7 +212,7 @@ export default function DriverReset() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-6 max-w-7xl mx-auto">
       <AnimatePresence>
         {modalOpen && (
           <ConfirmModal
@@ -227,24 +227,24 @@ export default function DriverReset() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Driver Reset Tools</h1>
-          <p className="text-gray-400 mt-1">Testing tools - Use with caution!</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Driver Reset Tools</h1>
+          <p className="text-gray-400">Manage driver data and statistics</p>
         </div>
-        <div className="flex items-center gap-2 bg-yellow-900/20 border border-yellow-700 rounded-lg px-4 py-2">
-          <AlertTriangle className="w-5 h-5 text-yellow-400" />
-          <span className="text-yellow-400 font-semibold">Testing Mode</span>
+        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 backdrop-blur-sm">
+          <AlertTriangle className="w-5 h-5 text-amber-400" />
+          <span className="text-amber-400 font-semibold">Testing Mode</span>
         </div>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search drivers..."
+          placeholder="Search drivers by username..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
+          className="w-full pl-12 pr-4 py-4 bg-[#1a1625] border border-[#2d1b5c] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
         />
       </div>
 
@@ -255,80 +255,134 @@ export default function DriverReset() {
             key={driver.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gray-800 rounded-lg p-6 border border-gray-700"
+            className="bg-gradient-to-br from-[#1a1625] to-[#120e1f] rounded-2xl p-6 border border-[#2d1b5c] hover:border-purple-500/50 transition-all shadow-xl"
           >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
+            {/* Driver Header */}
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex items-center gap-4">
                 {driver.avatar ? (
                   <img
                     src={driver.avatar}
                     alt={driver.username}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-purple-500"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-purple-500 shadow-lg"
                   />
                 ) : (
-                  <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6 text-white" />
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                    <User className="w-8 h-8 text-white" />
                   </div>
                 )}
                 <div>
-                  <h3 className="text-xl font-bold text-white">{driver.username}</h3>
-                  <p className="text-sm text-gray-400">
-                    {driver.total_jobs || 0} jobs • {driver.total_completed || 0} completed
-                  </p>
+                  <h3 className="text-2xl font-bold text-white mb-1">{driver.username}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full">
+                      Driver
+                    </span>
+                    <span className="text-xs text-gray-500">ID: {driver.id}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Reset Stats Only */}
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Total Jobs</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{driver.total_jobs || 0}</p>
+              </div>
+
+              <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Award className="w-4 h-4 text-green-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Completed</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{driver.total_completed || 0}</p>
+              </div>
+
+              <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <MapPin className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Distance</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{driver.total_distance?.toLocaleString() || 0} km</p>
+              </div>
+
+              <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-gray-400 uppercase tracking-wide">Cancelled</span>
+                </div>
+                <p className="text-2xl font-bold text-white">{driver.total_cancelled || 0}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Reset Stats - Low danger */}
               <button
                 onClick={() => handleResetStats(driver.id, driver.username)}
                 disabled={actionLoading === `stats-${driver.id}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                className="group relative flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 hover:scale-[1.02]"
               >
-                <RotateCcw className="w-4 h-4" />
-                {actionLoading === `stats-${driver.id}` ? "Resetting..." : "Reset Stats"}
+                <RotateCcw className={`w-4 h-4 ${actionLoading === `stats-${driver.id}` ? 'animate-spin' : ''}`} />
+                <span className="font-medium text-sm">
+                  {actionLoading === `stats-${driver.id}` ? "Resetting..." : "Reset Stats"}
+                </span>
               </button>
 
-              {/* Delete Cancelled Jobs */}
+              {/* Delete Cancelled - Medium danger */}
               <button
                 onClick={() => handleDeleteCancelledJobs(driver.id, driver.username)}
                 disabled={actionLoading === `cancelled-${driver.id}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                className="group relative flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02]"
               >
                 <Trash2 className="w-4 h-4" />
-                {actionLoading === `cancelled-${driver.id}` ? "Deleting..." : "Delete Cancelled"}
+                <span className="font-medium text-sm">
+                  {actionLoading === `cancelled-${driver.id}` ? "Deleting..." : "Delete Cancelled"}
+                </span>
               </button>
 
-              {/* Delete All Jobs */}
+              {/* Delete All Jobs - High danger */}
               <button
                 onClick={() => handleDeleteAllJobs(driver.id, driver.username)}
                 disabled={actionLoading === `jobs-${driver.id}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                className="group relative flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-lg hover:shadow-red-500/25 hover:scale-[1.02]"
               >
                 <Trash2 className="w-4 h-4" />
-                {actionLoading === `jobs-${driver.id}` ? "Deleting..." : "Delete All Jobs"}
+                <span className="font-medium text-sm">
+                  {actionLoading === `jobs-${driver.id}` ? "Deleting..." : "Delete All Jobs"}
+                </span>
               </button>
 
-              {/* Full Reset (Delete Account) */}
+              {/* Full Reset - Critical danger */}
               <button
                 onClick={() => handleFullReset(driver.id, driver.username)}
                 disabled={actionLoading === `full-${driver.id}`}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-red-900 hover:bg-red-800 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors border-2 border-red-500"
+                className="group relative flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-red-900 to-red-950 hover:from-red-800 hover:to-red-900 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white rounded-xl transition-all border-2 border-red-500/50 hover:border-red-500 shadow-lg hover:shadow-red-500/40 hover:scale-[1.02]"
               >
                 <AlertTriangle className="w-4 h-4" />
-                {actionLoading === `full-${driver.id}` ? "Deleting..." : "Full Reset"}
+                <span className="font-bold text-sm">
+                  {actionLoading === `full-${driver.id}` ? "Deleting..." : "Full Reset"}
+                </span>
               </button>
             </div>
           </motion.div>
         ))}
       </div>
 
-      {filteredDrivers.length === 0 && (
-        <div className="text-center py-12">
-          <User className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-400">No drivers found</p>
-        </div>
+      {/* Empty State */}
+      {filteredDrivers.length === 0 && !loading && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-16 bg-[#1a1625] rounded-2xl border border-[#2d1b5c]"
+        >
+          <User className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <p className="text-xl text-gray-400 font-medium">No drivers found</p>
+          <p className="text-sm text-gray-500 mt-2">Try adjusting your search term</p>
+        </motion.div>
       )}
     </div>
   );
