@@ -44,12 +44,17 @@ export default function JobManager() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showHardDeleteModal, setShowHardDeleteModal] = useState(false);
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (currentStatusFilter) => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/admin/jobs");
+      const params = {};
+      if (currentStatusFilter && currentStatusFilter !== "all") {
+        params.status = currentStatusFilter;
+      }
+      const { data } = await api.get("/admin/jobs", { params });
       const list = Array.isArray(data) ? data : data.jobs || [];
       setJobs(list);
     } catch (e) {
@@ -62,11 +67,24 @@ export default function JobManager() {
 
   useEffect(() => {
     if (isStaff && isStaff()) {
-      fetchJobs();
+      fetchJobs(statusFilter);
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStaff, statusFilter]);
+
+  useEffect(() => {
+    const handleJobDeleted = (data) => {
+      console.log('[JobManager] Received job:deleted event for job:', data.jobId);
+      setJobs((prevJobs) => prevJobs.filter((job) => job.job_number !== data.jobId));
+    };
+
+    const unsubscribe = window.electronAPI.onJobDeleted(handleJobDeleted);
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const filteredJobs = useMemo(() => {
@@ -214,6 +232,28 @@ export default function JobManager() {
     }
   };
 
+  const openHardDeleteModal = (job) => {
+    setSelectedJob(job);
+    setShowHardDeleteModal(true);
+  };
+
+  const confirmHardDelete = async () => {
+    if (!selectedJob) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      await api.delete(`/admin/jobs/hard-delete/${selectedJob.job_number}`);
+      await fetchJobs();
+      setShowHardDeleteModal(false);
+      setSelectedJob(null);
+    } catch (e) {
+      console.error("Hard delete failed:", e);
+      setError("Failed to hard delete job.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const openViewModal = (job) => {
     setSelectedJob(job);
     setShowViewModal(true);
@@ -230,7 +270,43 @@ export default function JobManager() {
           <p className="text-sm text-slate-400">
             The job manager is restricted to staff members.
           </p>
-        </div>
+          {/* Hard Delete Modal */}
+      {showHardDeleteModal && selectedJob && (
+        <Modal
+          onClose={() => setShowHardDeleteModal(false)}
+          title="Permanently Delete Job"
+        >
+          <div className="space-y-3 text-sm text-slate-100">
+            <p className="text-red-400 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5" />
+              WARNING: This action cannot be undone. The job record will be
+              permanently removed from the database.
+            </p>
+            <DetailRow
+              label="Job"
+              value={`#${selectedJob.job_number} - ${
+                selectedJob.username || "Unknown"
+              }`}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowHardDeleteModal(false)}
+                className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-700/30 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmHardDelete}
+                disabled={actionLoading}
+                className="rounded-lg bg-red-700 px-3 py-1 text-sm text-white hover:bg-red-800 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Hard Delete"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
       </div>
     );
   }
@@ -462,6 +538,13 @@ export default function JobManager() {
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
+                      <button
+                        onClick={() => openHardDeleteModal(job)}
+                        className="rounded-lg border border-red-700/70 px-2 py-1 text-[11px] text-red-500 hover:bg-red-700/10 transition-colors"
+                        title="Permanently delete job"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -686,34 +769,35 @@ export default function JobManager() {
             />
             <div>
               <label className="block mb-1 text-xs text-slate-400">
-                Reason (optional)
+                Reason for soft delete (optional)
               </label>
               <textarea
-                rows={3}
                 value={deleteReason}
                 onChange={(e) => setDeleteReason(e.target.value)}
                 className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                placeholder="Why are you deleting this job?"
-              />
+                rows="3"
+              ></textarea>
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="px-3 py-1.5 rounded-lg border border-[#2c1e3a] text-xs text-slate-200 hover:bg-[#1b1024]/80 transition-colors"
+                className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-700/30 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={actionLoading}
-                className="px-3 py-1.5 rounded-lg bg-red-600 text-xs text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                className="rounded-lg bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                Confirm Delete
+                {actionLoading ? "Deleting..." : "Confirm Soft Delete"}
               </button>
             </div>
           </div>
         </Modal>
       )}
+
+
     </div>
   );
 }

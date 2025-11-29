@@ -68,7 +68,6 @@ export default function Jobs() {
 
       const endpoint = isStaff() ? "/jobs" : "/jobs/my-jobs";
       const response = await api.get(`${endpoint}?${params}`);
-
       setJobs(response.data.jobs || response.data);
       setTotalJobs(response.data.total || response.data.length);
     } catch (error) {

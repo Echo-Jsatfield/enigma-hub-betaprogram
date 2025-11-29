@@ -41,6 +41,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log(`[API Interceptor] Sending Authorization header: Bearer ${token ? '[TOKEN_PRESENT]' : '[TOKEN_MISSING]'}`);
+    } else {
+      console.log('[API Interceptor] No token found in localStorage. Not sending Authorization header.');
     }
     return config;
   },

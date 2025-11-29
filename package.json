@@ -1,6 +1,6 @@
 {
   "name": "enigma-hub-frontend",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Enigma Hub Frontend (Electron + Vite App)",
   "author": "Echo Jsatfield",
   "main": "src/main/main.js",
@@ -78,6 +78,7 @@
     "lucide-react": "^0.548.0",
     "pg": "^8.16.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "socket.io-client": "^4.8.1"
   }
 }

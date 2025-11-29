@@ -10,7 +10,11 @@ import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import https from 'https';
+import http from 'http'; // Import http module
 import { startTelemetryServer, stopTelemetryServer, setCurrentUser } from './telemetry-server.js';
+import { io } from 'socket.io-client';
+
+const API_URL = process.env.VITE_API_URL || 'https://enigmalogistics.org';
 import { getGamePaths, saveGamePaths } from './game-paths.js';
 import pkg from 'electron-updater';
 import { createOverlay, toggleOverlay, sendToOverlay } from './overlay-manager.js';
@@ -124,6 +128,8 @@ console.log(`__dirname: ${__dirname}`);
 // ============================================
 
 let mainWindow;
+let socket;
+let authToken = null;
 
 // ============================================
 // PATH RESOLUTION
@@ -146,6 +152,31 @@ function getHTMLPath() {
   }
 
   return join(__dirname, '../../dist/index.html');
+}
+
+// ============================================
+// BACKEND REACHABILITY CHECK
+// ============================================
+
+function checkBackendReachability() {
+  const backendHealthUrl = `${API_URL}/health`;
+  console.log(`[BackendCheck] Checking backend reachability at: ${backendHealthUrl}`);
+
+  const client = https;
+
+  client.get(backendHealthUrl, (res) => {
+    let data = '';
+    res.on('data', (chunk) => { data += chunk; });
+    res.on('end', () => {
+      if (res.statusCode === 200) {
+        console.log(`[BackendCheck] ✅ Backend is reachable. Status: ${res.statusCode}, Data: ${data}`);
+      } else {
+        console.error(`[BackendCheck] ❌ Backend returned non-200 status. Status: ${res.statusCode}, Data: ${data}`);
+      }
+    });
+  }).on('error', (err) => {
+    console.error(`[BackendCheck] ❌ Failed to reach backend: ${err.message}`);
+  });
 }
 
 // ============================================
@@ -469,6 +500,53 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     console.log('[Window] ✅ Window ready to show');
     mainWindow.show();
+
+    // Initialize Socket.IO client
+    socket = io(API_URL, {
+      transports: ['websocket'],
+      autoConnect: false,
+      auth: {
+      token: authToken // Pass the JWT token here
+    }
+  });
+
+    socket.on('connect_error', (err) => {
+      console.error('[Socket.IO] Connection Error:', err.message, err.data);
+      // Optionally, emit this error to the renderer process if needed
+      // mainWindow.webContents.send('socket-connect-error', err.message);
+    });
+
+    socket.on('connect', () => {
+      console.log('[Socket.IO] Connected to API server');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('socket-connected');
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('[Socket.IO] Disconnected from API server:', reason);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('socket-disconnected', reason);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('[Socket.IO] Connection error:', error.message);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('socket-error', error.message);
+      }
+    });
+
+    // IPC channel for job:deleted event
+    socket.on('job:deleted', (data) => {
+      console.log('[Socket.IO] Received job:deleted event:', data);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('job:deleted', data);
+      }
+    });
+
+    // Connect the socket
+    // socket.connect(); // Removed initial connect call
   });
 
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
@@ -477,6 +555,10 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     console.log('[Window] Window closed');
+    if (socket) {
+      socket.disconnect();
+      console.log('[Socket.IO] Disconnected socket due to window close');
+    }
     mainWindow = null;
   });
 
@@ -518,6 +600,27 @@ ipcMain.on('toggle-devtools', () => {
 // ✅ Overlay toggle
 ipcMain.handle('toggle-overlay', () => {
   toggleOverlay();
+});
+
+// ============================================
+// IPC HANDLERS - AUTHENTICATION
+// ============================================
+
+ipcMain.on('auth-token', (event, token) => {
+  console.log('[Auth] Received auth token in main process');
+  authToken = token;
+  console.log('[Auth Debug] authToken after IPC receipt:', authToken);
+  console.log('[Auth Debug] Socket state - initialized:', !!socket, 'connected:', socket?.connected);
+  // If socket is already initialized and not connected, try to connect with the token
+  if (socket && !socket.connected) {
+            socket.auth = { token };
+            try {
+              socket.connect();
+              console.log('[Auth] Attempting to connect Socket.IO...');
+            } catch (error) {
+              console.error('[Auth] Error initiating Socket.IO connection:', error);
+            }
+          }
 });
 
 // ============================================
@@ -1060,6 +1163,7 @@ ipcMain.handle('uninstall-app', async () => {
 
 app.whenReady().then(() => {
   console.log('[App] App ready!');
+  checkBackendReachability(); // Check backend reachability on app ready
   console.log('[App] Starting telemetry server on port 25555...');
   startTelemetryServer();
 

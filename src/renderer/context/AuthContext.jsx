@@ -95,10 +95,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (username, password) => {
-    // 🔥 Prevent concurrent login attempts
-    if (isCheckingAuth.current) {
-      return { success: false, message: "Please wait..." };
-    }
+          console.log('[AuthContext] Entering login function');
+          // 🔥 Prevent concurrent login attempts
+          if (isCheckingAuth.current) {
+            return { success: false, message: "Please wait..." };
+          }
 
     try {
       setLoading(true);
@@ -108,7 +109,8 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post("/auth/login", { username, password });
       const { token, refreshToken, sessionToken, user: userData } = response.data;
 
-      console.log('🔥 LOGIN RESPONSE:', response.data);
+            console.log('[AuthContext] Login API call successful');
+            console.log('🔥 LOGIN RESPONSE:', response.data);
       console.log('🔥 User data:', userData);
       console.log('🔥 User roles:', userData.roles);
 
@@ -119,9 +121,16 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
 
       notifyTelemetryLogin({
-        ...userData,
-        token: sessionToken,
-      });
+              ...userData,
+              token: sessionToken,
+            });
+
+            console.log('[AuthContext] Checking for electronAPI.sendAuthToken');
+            // Send auth token to main process for Socket.IO
+            console.log('[Auth Debug] window.electronAPI in AuthContext:', window.electronAPI);
+      if (window.electronAPI?.sendAuthToken) {
+        window.electronAPI.sendAuthToken(token);
+      }
 
       // Update last check time to prevent immediate re-check
       lastAuthCheck.current = Date.now();

@@ -50,4 +50,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   quickPush: () => ipcRenderer.invoke('quick-push'),
   pushRelease: (data) => ipcRenderer.invoke('push-release', data),
   uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
+
+  // Auth
+  sendAuthToken: (token) => {
+    console.log('[Preload] sendAuthToken called with token:', token ? '[token received]' : '[no token]');
+    ipcRenderer.send('auth-token', token);
+  },
+
+  // Job Events
+  onJobDeleted: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('job:deleted', listener);
+    return () => ipcRenderer.removeListener('job:deleted', listener);
+  },
 });
+
+console.log('[Preload] electronAPI exposed');
