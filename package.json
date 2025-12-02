@@ -1,6 +1,6 @@
 {
   "name": "enigma-hub-frontend",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Enigma Hub Frontend (Electron + Vite App)",
   "author": "Echo Jsatfield",
   "main": "src/main/main.js",
@@ -13,6 +13,7 @@
     "build:app": "npm run build && electron-builder --dir",
     "package": "npm run build && electron-builder",
     "publish": "npm run build && electron-builder --publish always",
+    "release:github": "npm run build && electron-builder --win --x64 --publish always",
     "clean": "rimraf dist dist-electron release"
   },
   "build": {

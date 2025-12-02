@@ -125,13 +125,6 @@ export const AuthProvider = ({ children }) => {
               token: sessionToken,
             });
 
-            console.log('[AuthContext] Checking for electronAPI.sendAuthToken');
-            // Send auth token to main process for Socket.IO
-            console.log('[Auth Debug] window.electronAPI in AuthContext:', window.electronAPI);
-      if (window.electronAPI?.sendAuthToken) {
-        window.electronAPI.sendAuthToken(token);
-      }
-
       // Update last check time to prevent immediate re-check
       lastAuthCheck.current = Date.now();
 

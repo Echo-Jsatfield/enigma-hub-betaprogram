@@ -34,6 +34,37 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ============================================
+// PORT UTILITIES
+// ============================================
+
+const killProcessOnPort = async (port) => {
+  console.log(`[Port Cleanup] Checking for processes on port ${port}...`);
+  try {
+    const { stdout: netstatOutput } = await execAsync(`netstat -ano | findstr :${port}`);
+    const lines = netstatOutput.trim().split('\n');
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parts[parts.length - 1];
+      if (pid && !isNaN(pid)) {
+        console.log(`[Port Cleanup] Found process with PID ${pid} on port ${port}. Attempting to terminate...`);
+        try {
+          await execAsync(`taskkill /F /PID ${pid}`);
+          console.log(`[Port Cleanup] Successfully terminated process with PID ${pid}.`);
+        } catch (taskkillError) {
+          console.error(`[Port Cleanup] Failed to terminate process with PID ${pid}: ${taskkillError.message}`);
+        }
+      }
+    }
+  } catch (error) {
+    if (error.message.includes('No rows were found') || error.message.includes('findstr')) {
+      console.log(`[Port Cleanup] No process found on port ${port}.`);
+    } else {
+      console.error(`[Port Cleanup] Error checking port ${port}: ${error.message}`);
+    }
+  }
+};
+
+// ============================================
 // UPDATE CLEANUP
 // ============================================
 
@@ -559,7 +590,12 @@ function createWindow() {
       socket.disconnect();
       console.log('[Socket.IO] Disconnected socket due to window close');
     }
+    // Removed stopTelemetryServer() from here
     mainWindow = null;
+    if (logStream) {
+      logStream.end();
+      logStream = null;
+    }
   });
 
   console.log('[Window] ✅ Main window created');
@@ -606,21 +642,39 @@ ipcMain.handle('toggle-overlay', () => {
 // IPC HANDLERS - AUTHENTICATION
 // ============================================
 
-ipcMain.on('auth-token', (event, token) => {
-  console.log('[Auth] Received auth token in main process');
-  authToken = token;
-  console.log('[Auth Debug] authToken after IPC receipt:', authToken);
+ipcMain.handle('telemetry-user-login', (event, userData) => {
+  console.log('[Telemetry] User logged in:', userData.username);
+  console.time('setCurrentUser_from_main');
+  setCurrentUser(userData);
+  console.timeEnd('setCurrentUser_from_main');
+  authToken = userData.token; // Set authToken from userData
+  console.log('[Auth Debug] authToken after telemetry-user-login:', authToken);
   console.log('[Auth Debug] Socket state - initialized:', !!socket, 'connected:', socket?.connected);
-  // If socket is already initialized and not connected, try to connect with the token
   if (socket && !socket.connected) {
-            socket.auth = { token };
-            try {
-              socket.connect();
-              console.log('[Auth] Attempting to connect Socket.IO...');
-            } catch (error) {
-              console.error('[Auth] Error initiating Socket.IO connection:', error);
-            }
-          }
+    socket.auth = { token: authToken };
+    try {
+      socket.connect();
+      console.log('[Auth] Attempting to connect Socket.IO...');
+    } catch (error) {
+      console.error('[Auth] Error initiating Socket.IO connection:', error);
+    }
+  }
+  return { success: true };
+});
+
+ipcMain.on('auth-token', (event, token) => {
+  console.log('[Auth Debug] Received new auth-token from renderer.');
+  authToken = token;
+  if (socket) {
+    socket.auth = { token: authToken };
+    if (socket.connected) {
+      console.log('[Auth] Socket already connected, re-authenticating with new token...');
+      socket.disconnect().connect(); // Disconnect and reconnect to re-authenticate
+    } else if (!socket.active) {
+      console.log('[Auth] Socket not active, attempting to connect with new token...');
+      socket.connect();
+    }
+  }
 });
 
 // ============================================
@@ -821,11 +875,7 @@ ipcMain.on('install-update', () => {
 // IPC HANDLERS - TELEMETRY
 // ============================================
 
-ipcMain.handle('telemetry-user-login', (event, userData) => {
-  console.log('[Telemetry] User logged in:', userData.username);
-  setCurrentUser(userData);
-  return { success: true };
-});
+
 
 ipcMain.handle('telemetry-user-logout', () => {
   console.log('[Telemetry] User logged out');
@@ -981,6 +1031,10 @@ ipcMain.handle('save-game-paths', async (event, ets2Path, atsPath) => {
       console.error('[SavePaths] Failed to install plugins');
       return { success: false, error: 'Failed to install plugins' };
     }
+
+    // Start telemetry server after successful plugin installation
+    console.log('[SavePaths] Starting telemetry server...');
+    startTelemetryServer();
 
     console.log('[SavePaths] ✅ Success!');
     return { success: true };
@@ -1161,105 +1215,73 @@ ipcMain.handle('uninstall-app', async () => {
 // APP LIFECYCLE
 // ============================================
 
-app.whenReady().then(() => {
-  console.log('[App] App ready!');
-  checkBackendReachability(); // Check backend reachability on app ready
-  console.log('[App] Starting telemetry server on port 25555...');
-  startTelemetryServer();
+app.whenReady().then(async () => {
+  console.log('[App] App is ready');
 
-  // Clean up old update files
+  // Function to kill process on a given port
+  const killProcessOnPort = async (port) => {
+    console.log(`[Port Cleanup] Checking for processes on port ${port}...`);
+    try {
+      const { stdout: netstatOutput } = await execAsync(`netstat -ano | findstr :${port}`);
+      const lines = netstatOutput.trim().split('\n');
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && !isNaN(pid)) {
+          console.log(`[Port Cleanup] Found process with PID ${pid} on port ${port}. Attempting to terminate...`);
+          try {
+            await execAsync(`taskkill /F /PID ${pid}`);
+            console.log(`[Port Cleanup] Successfully terminated process with PID ${pid}.`);
+          } catch (taskkillError) {
+            console.error(`[Port Cleanup] Failed to terminate process with PID ${pid}: ${taskkillError.message}`);
+          }
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('No rows were found') || error.message.includes('findstr')) {
+        console.log(`[Port Cleanup] No process found on port ${port}.`);
+      } else {
+        console.error(`[Port Cleanup] Error checking port ${port}: ${error.message}`);
+      }
+    }
+  };
+
+  // Ensure port 25555 is free before starting telemetry server
+  await killProcessOnPort(25555);
+
+  // Cleanup old update files
   cleanupOldUpdates();
 
-  // Check and reinstall plugins if version changed
+  // Check backend reachability
+  checkBackendReachability();
+
+  // Check and reinstall plugins if app version changed
   checkAndReinstallPlugins();
 
-  createWindow();
-  createOverlay(); // ✅ Create overlay window
+  // Start telemetry server
+  startTelemetryServer();
 
-  // ✅ Register global keyboard shortcut for overlay
-  globalShortcut.register('Alt+I', () => {
-    console.log('[Overlay] Alt+I pressed - toggling overlay');
+  createWindow();
+  createOverlay();
+
+  // Check for custom updates every 2 hours
+  setInterval(checkForPortableUpdate, UPDATE_CHECK_INTERVAL);
+
+  // Register global shortcut for overlay toggle
+  globalShortcut.register('CommandOrControl+Shift+O', () => {
     toggleOverlay();
   });
-
-  // electron-updater for NSIS (production only)
-  if (!isDev) {
-    console.log('[AutoUpdater] Checking for updates...');
-    autoUpdater.checkForUpdatesAndNotify();
-    
-    autoUpdater.on('checking-for-update', () => {
-      console.log('[AutoUpdater] Checking for update...');
-    });
-    
-    autoUpdater.on('update-available', (info) => {
-      console.log('[AutoUpdater] Update available:', info.version);
-      if (mainWindow) {
-        mainWindow.webContents.send('update-available', info);
-      }
-    });
-    
-    autoUpdater.on('update-not-available', () => {
-      console.log('[AutoUpdater] App is up to date');
-    });
-    
-    autoUpdater.on('download-progress', (progress) => {
-      console.log(`[AutoUpdater] Download progress: ${Math.round(progress.percent)}%`);
-      if (mainWindow) {
-        mainWindow.webContents.send('download-progress', progress);
-      }
-    });
-    
-    autoUpdater.on('update-downloaded', (info) => {
-      console.log('[AutoUpdater] Update downloaded:', info.version);
-      if (mainWindow) {
-        mainWindow.webContents.send('update-downloaded', info);
-      }
-    });
-    
-    autoUpdater.on('error', (err) => {
-      console.error('[AutoUpdater] Error:', err);
-    });
-    
-    // Check every 2 hours
-    setInterval(() => {
-      autoUpdater.checkForUpdatesAndNotify();
-    }, UPDATE_CHECK_INTERVAL);
-  }
-
-  // CUSTOM UPDATER (portable builds) - DISABLED FOR NSIS
-  // if (!isDev) {
-  //   console.log('[CustomUpdater] Initial update check...');
-  //   checkForPortableUpdate();
-  //
-  //   setInterval(() => {
-  //     console.log('[CustomUpdater] Periodic update check...');
-  //     checkForPortableUpdate();
-  //   }, UPDATE_CHECK_INTERVAL);
-  // }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
-// ✅ Cleanup shortcuts on app quit
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', () => {
-  console.log('[App] All windows closed');
-  console.log('[App] Stopping telemetry server...');
-  stopTelemetryServer();
-
-  if (logStream) {
-    logStream.end();
-  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  console.log('[App] App is quitting. Stopping telemetry server...');
+  stopTelemetryServer();
 });
 
 app.on('browser-window-created', (_, window) => {

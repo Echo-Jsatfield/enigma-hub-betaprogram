@@ -54,7 +54,7 @@ export default function JobManager() {
       if (currentStatusFilter && currentStatusFilter !== "all") {
         params.status = currentStatusFilter;
       }
-      const { data } = await api.get("/admin/jobs", { params });
+      const { data } = await api.get("/admin/all-jobs", { params });
       const list = Array.isArray(data) ? data : data.jobs || [];
       setJobs(list);
     } catch (e) {
@@ -180,7 +180,7 @@ export default function JobManager() {
         flag_reasons: editState.flag_reasons || null,
       };
 
-      await api.patch(`/admin/jobs/${editState.job_number}`, payload);
+      await api.patch(`/admin/all-jobs/${editState.job_number}`, payload);
       await fetchJobs();
       setShowEditModal(false);
       setSelectedJob(null);
@@ -197,7 +197,7 @@ export default function JobManager() {
     setActionLoading(true);
     setError("");
     try {
-      await api.post(`/admin/jobs/${job.job_number}/sync-discord`);
+      await api.post(`/admin/all-jobs/${job.job_number}/sync-discord`);
       await fetchJobs();
     } catch (e) {
       console.error("Discord sync failed:", e);
@@ -218,7 +218,7 @@ export default function JobManager() {
     setActionLoading(true);
     setError("");
     try {
-      await api.delete(`/admin/jobs/${selectedJob.job_number}`, {
+      await api.delete(`/admin/all-jobs/${selectedJob.job_number}`, {
         data: { reason: deleteReason || null },
       });
       await fetchJobs();
@@ -242,7 +242,7 @@ export default function JobManager() {
     setActionLoading(true);
     setError("");
     try {
-      await api.delete(`/admin/jobs/hard-delete/${selectedJob.job_number}`);
+      await api.delete(`/admin/all-jobs/hard-delete/${selectedJob.job_number}`);
       await fetchJobs();
       setShowHardDeleteModal(false);
       setSelectedJob(null);

@@ -15,7 +15,9 @@ const CONFIG = {
 };
 
 let currentUser = null;
-let serverStopped = false;
+let serverInstance = null; // To hold the TCP server instance
+let retryCount = 0;
+const MAX_RETRIES = 5;
 let offlineBuffer = [];
 let apiClient = null;
 
@@ -53,11 +55,14 @@ function initAPIClient() {
 }
 
 export function setCurrentUser(userData) {
+    console.time('setCurrentUser');
     currentUser = userData;
     if (userData) {
+        currentUser.timestamp = Date.now(); // Add timestamp when user is set
         console.log('[Telemetry] User logged in:', userData.username);
         initAPIClient();
     }
+    console.timeEnd('setCurrentUser');
 }
 
 export function getCurrentUser() {
@@ -217,18 +222,26 @@ function detectModSource(jobData) {
 // ============================================================================
 
 async function handleInitRequest(socket, message) {
+    console.time('handleInitRequest');
     console.log('[Telemetry] ===== HANDLING INIT REQUEST =====');
-    console.log('[Telemetry] currentUser:', currentUser ? {id: currentUser.id, username: currentUser.username} : 'NULL');
+    if (currentUser) {
+        const userAge = Date.now() - currentUser.timestamp;
+        console.log(`[Telemetry] currentUser: ${currentUser.username} (set ${userAge}ms ago)`);
+    } else {
+        console.log('[Telemetry] currentUser: NULL');
+    }
     
     if (!currentUser) {
-        const errorResponse = JSON.stringify({
-            type: 'init_response',
-            verified: false,
-            error: 'Not logged in'
-        }) + '\n';
-        console.log('[Telemetry] Sending ERROR response:', errorResponse);
-        socket.write(errorResponse);
-        return;
+      const errorResponse = JSON.stringify({
+        type: 'init_response',
+        verified: false,
+        error: 'Not logged in, retrying...'
+      }) + '\n';
+      console.log('[Telemetry] Sending temporary ERROR response (Not logged in):', errorResponse);
+      // Do not close the socket, allow the client to retry
+      socket.write(errorResponse);
+      console.timeEnd('handleInitRequest');
+      return;
     }
 
     console.log('[DEBUG] Sending steam_id:', currentUser.steam_id);
@@ -260,6 +273,7 @@ async function handleInitRequest(socket, message) {
     console.log('[Telemetry] ✅ Sent connected status to overlay');
     
     console.log('[Telemetry] ===================================');
+    console.timeEnd('handleInitRequest');
 }
 
 // UPDATED telemetry-server.js with debug logging
@@ -283,6 +297,9 @@ async function handleJobStarted(socket, message) {
     const jobData = {
         // NO job_id here - API generates it server-side
         user_id: currentUser.id,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        discord_id: currentUser.discord_id,
         game: message.game || 'Unknown',
         cargo: message.cargo || 'unknown',
         cargo_display: cargoDisplay,
@@ -294,6 +311,9 @@ async function handleJobStarted(socket, message) {
         destination_company: message.destination_company || '',
         cargo_mass: Number(message.cargo_mass) || 0,
         planned_distance: Number(message.planned_distance) || 0,
+        distance_unit: message.distance_unit || 'km',
+        currency: message.currency || 'EUR',
+        truck_model: message.truck_model || 'Unknown',
         mod_source: modSource,
         is_quick_job: !!message.is_quick_job
     };
@@ -345,6 +365,9 @@ async function handleJobDelivered(socket, message) {
 
     const jobData = {
         job_id: message.job_id,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
         actual_distance: Number(message.actual_distance) || 0,
         normal_miles: Number(message.normal_miles) || 0,
         race_miles: Number(message.race_miles) || 0,
@@ -369,13 +392,76 @@ async function handleJobDelivered(socket, message) {
         income: 0
     });
 
-    socket.write(JSON.stringify({
-        type: 'job_saved',
-        job_id: message.job_id,
-        status: result ? 'ok' : 'buffered'
-    }) + '\n');
+    if (socket.writable) {
+        socket.write(JSON.stringify({
+            type: 'job_saved',
+            job_id: message.job_id,
+            status: result ? 'ok' : 'buffered'
+        }) + '\n');
+    } else {
+        console.warn('[Telemetry] Socket not writable, cannot send job_saved response for job_id:', message.job_id);
+    }
 
-    console.log('[Telemetry] Job delivered:', message.job_id);
+    if (result) {
+        console.log('[Telemetry] Job delivered:', message.job_id);
+    } else {
+        console.warn('[Telemetry] Job delivery failed or was buffered:', message.job_id);
+    }
+}
+
+async function handleJobCompleted(socket, message) {
+    if (!currentUser) {
+        console.warn('[Telemetry] Job completed but no user logged in');
+        return;
+    }
+
+    console.log('[Telemetry] Job completed data received:', JSON.stringify(message, null, 2));
+
+    const jobData = {
+        job_id: message.job_id,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        actual_distance: Number(message.actual_distance) || 0,
+        normal_distance: Number(message.normal_distance) || 0,
+        race_distance: Number(message.race_distance) || 0,
+        delivery_time_seconds: Number(message.delivery_time_seconds) || 0,
+        income: Number(message.income) || 0,
+        damage_percent: Number(message.damage_percent) || 0,
+        distance_unit: message.distance_unit || 'km',
+        currency: message.currency || 'EUR',
+        fuel_used: Number(message.fuel_used) || 0,
+        average_speed: Number(message.average_speed) || 0
+    };
+
+    const result = await forwardToAPI('/telemetry/complete', jobData);
+
+    // ✅ Clear job from overlay
+    sendToOverlay('job:update', {
+        active: false,
+        cargo: null,
+        pickup: null,
+        delivery: null,
+        distance: 0,
+        remainingDistance: 0,
+        income: 0
+    });
+
+    if (socket.writable) {
+        socket.write(JSON.stringify({
+            type: 'job_saved',
+            job_id: message.job_id,
+            status: result ? 'ok' : 'buffered'
+        }) + '\n');
+    } else {
+        console.warn('[Telemetry] Socket not writable, cannot send job_saved response for job_id:', message.job_id);
+    }
+
+    if (result) {
+        console.log('[Telemetry] Job completed:', message.job_id);
+    } else {
+        console.warn('[Telemetry] Job completion failed or was buffered:', message.job_id);
+    }
 }
 
 async function handleJobCancelled(socket, message) {
@@ -388,6 +474,9 @@ async function handleJobCancelled(socket, message) {
 
     const jobData = {
         job_id: message.job_id,
+        user_id: currentUser.id,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
         reason: message.reason || 'Cancelled by driver'
     };
 
@@ -472,6 +561,9 @@ function handleIncomingMessage(socket, rawMessage) {
         case 'job_delivered':
             handleJobDelivered(socket, message);
             break;
+        case 'job_completed':
+            handleJobCompleted(socket, message);
+            break;
         case 'job_cancelled':
             handleJobCancelled(socket, message);
             break;
@@ -499,15 +591,15 @@ function handleIncomingMessage(socket, rawMessage) {
 // ============================================================================
 
 export function startTelemetryServer() {
-    if (serverStopped) {
-        console.log('[Telemetry] Server was stopped, not restarting');
+    if (serverInstance) {
+        console.log('[Telemetry] Server already running, not starting again.');
         return;
     }
 
     initAPIClient();
     loadOfflineBuffer();
 
-    const server = net.createServer((socket) => {
+    serverInstance = net.createServer((socket) => {
         console.log('[Telemetry] Plugin connected');
 
         let buffer = '';
@@ -529,21 +621,46 @@ export function startTelemetryServer() {
         });
 
         socket.on('error', (err) => {
-            console.error('[Telemetry] Socket error:', err.message);
+            console.error('[Telemetry] Socket error:', err.message, '\nStack:', err.stack);
+            console.error('[Telemetry] Socket state - readable:', socket.readable, ', writable:', socket.writable, ', connecting:', socket.connecting, ', destroyed:', socket.destroyed);
         });
     });
 
-    server.listen(CONFIG.TCP_PORT, CONFIG.TCP_HOST, () => {
+    serverInstance.listen(CONFIG.TCP_PORT, CONFIG.TCP_HOST, () => {
         console.log(`[Telemetry] Server listening on ${CONFIG.TCP_HOST}:${CONFIG.TCP_PORT}`);
     });
 
-    server.on('error', (err) => {
+    serverInstance.on('error', (err) => {
         console.error('[Telemetry] Server error:', err.message);
+        if (err.code === 'EADDRINUSE') {
+            if (retryCount < MAX_RETRIES) {
+                retryCount++;
+                console.error(`[Telemetry] Address ${CONFIG.TCP_HOST}:${CONFIG.TCP_PORT} already in use. Retrying in 5 seconds... (Attempt ${retryCount}/${MAX_RETRIES})`);
+                if (serverInstance) {
+                    serverInstance.close(() => {
+                        serverInstance = null;
+                        setTimeout(startTelemetryServer, 5000);
+                    });
+                } else {
+                    setTimeout(startTelemetryServer, 5000);
+                }
+            } else {
+                console.error(`[Telemetry] Failed to start server after ${MAX_RETRIES} attempts. Address ${CONFIG.TCP_HOST}:${CONFIG.TCP_PORT} remains in use. Please ensure no other instance of Enigma Hub is running.`);
+                // Optionally, notify the main process or renderer to display a user-friendly message
+            }
+        } else {
+            console.error('[Telemetry] Unhandled server error:', err);
+        }
     });
 }
 
 export function stopTelemetryServer() {
-    serverStopped = true;
+    if (serverInstance) {
+        serverInstance.close(() => {
+            console.log('[Telemetry] Server closed.');
+            serverInstance = null;
+        });
+    }
     saveOfflineBuffer();
     console.log('[Telemetry] Server stopped');
 }
