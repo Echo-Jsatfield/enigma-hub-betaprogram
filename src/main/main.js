@@ -31,7 +31,7 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] ✅ Update available:', info.version);
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
     console.log('[AutoUpdater] Sending update-available to renderer');
     mainWindow.webContents.send('update-available', {
       version: info.version,
@@ -49,7 +49,7 @@ autoUpdater.on('update-not-available', (info) => {
 autoUpdater.on('download-progress', (progressObj) => {
   const percent = Math.round(progressObj.percent);
   console.log(`[AutoUpdater] Download progress: ${percent}%`);
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
     mainWindow.webContents.send('download-progress', {
       percent: progressObj.percent,
       transferred: progressObj.transferred,
@@ -61,7 +61,7 @@ autoUpdater.on('download-progress', (progressObj) => {
 autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
   console.log('[AutoUpdater] Will install on app quit');
-  if (mainWindow && !mainWindow.isDestroyed()) {
+  if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
     console.log('[AutoUpdater] Sending update-downloaded to renderer');
     mainWindow.webContents.send('update-downloaded', {
       version: info.version,
@@ -212,6 +212,7 @@ console.log(`__dirname: ${__dirname}`);
 
 let mainWindow;
 let socket;
+let isWindowReady = false;
 let authToken = null;
 
 // ============================================
@@ -579,6 +580,11 @@ function createWindow() {
   } else {
     mainWindow.loadFile(htmlPath);
   }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[Window] ✅ Renderer loaded - ready for IPC');
+    isWindowReady = true;
+  });
 
   mainWindow.once('ready-to-show', () => {
     console.log('[Window] ✅ Window ready to show');
