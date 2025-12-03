@@ -11,7 +11,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import https from 'https';
 import http from 'http'; // Import http module
-import { startTelemetryServer, stopTelemetryServer, setCurrentUser } from './telemetry-server.js';
+import { setCurrentUser } from './telemetry-server.js';
 import { io } from 'socket.io-client';
 
 const API_URL = process.env.VITE_API_URL || 'https://enigmalogistics.org';
@@ -868,8 +868,18 @@ del "%~f0"
 ipcMain.handle('check-for-updates', async () => {
   try {
     console.log('[AutoUpdater] Manual update check triggered');
+    console.log('[AutoUpdater] Current version:', app.getVersion());
+    console.log('[AutoUpdater] Feed URL:', autoUpdater.getFeedURL());
+
     if (!isDev) {
       const result = await autoUpdater.checkForUpdates();
+      console.log('[AutoUpdater] Check result:', JSON.stringify(result, null, 2));
+
+      if (result?.updateInfo) {
+        console.log('[AutoUpdater] Latest version on GitHub:', result.updateInfo.version);
+        console.log('[AutoUpdater] Current version:', result.currentVersion);
+      }
+
       return { success: true, updateInfo: result?.updateInfo };
     }
     return { success: true, message: 'Dev mode - no updates' };
@@ -1059,11 +1069,9 @@ ipcMain.handle('save-game-paths', async (event, ets2Path, atsPath) => {
       return { success: false, error: 'Failed to install plugins' };
     }
 
-    // Start telemetry server after successful plugin installation
-    console.log('[SavePaths] Starting telemetry server...');
-    startTelemetryServer();
-
-    console.log('[SavePaths] ✅ Success!');
+    // Telemetry server moved to VPS - no longer needed locally
+    // The plugin now sends directly to the VPS API endpoint
+    console.log('[SavePaths] ✅ Success! Plugin will send telemetry to VPS.');
     return { success: true };
   } catch (error) {
     console.error('[SavePaths] Error:', error);
@@ -1206,18 +1214,25 @@ ipcMain.handle('uninstall-app', async () => {
         if (!gamePath) return;
         const pluginsDir = join(gamePath, 'bin', 'win_x64', 'plugins');
 
-        // Delete DLL
-        const dllPath = join(pluginsDir, 'scs-telemetry.dll');
-        if (fs.existsSync(dllPath)) {
-          fs.unlinkSync(dllPath);
-          console.log('[Uninstall] Deleted:', dllPath);
+        // Delete current DLL (enigma_telemetry_core.dll)
+        const currentDll = join(pluginsDir, 'enigma_telemetry_core.dll');
+        if (fs.existsSync(currentDll)) {
+          fs.unlinkSync(currentDll);
+          console.log('[Uninstall] Deleted:', currentDll);
         }
 
-        // Delete folder
-        const folderPath = join(pluginsDir, 'enigma');
-        if (fs.existsSync(folderPath)) {
-          fs.rmSync(folderPath, { recursive: true, force: true });
-          console.log('[Uninstall] Deleted folder:', folderPath);
+        // Delete legacy DLL (scs-telemetry.dll)
+        const legacyDll = join(pluginsDir, 'scs-telemetry.dll');
+        if (fs.existsSync(legacyDll)) {
+          fs.unlinkSync(legacyDll);
+          console.log('[Uninstall] Deleted legacy DLL:', legacyDll);
+        }
+
+        // Delete legacy folder
+        const legacyFolder = join(pluginsDir, 'enigma');
+        if (fs.existsSync(legacyFolder)) {
+          fs.rmSync(legacyFolder, { recursive: true, force: true });
+          console.log('[Uninstall] Deleted legacy folder:', legacyFolder);
         }
       };
 
@@ -1285,8 +1300,9 @@ app.whenReady().then(async () => {
   // Check and reinstall plugins if app version changed
   checkAndReinstallPlugins();
 
-  // Start telemetry server
-  startTelemetryServer();
+  // Telemetry server moved to VPS - plugin sends directly to API
+  // No longer need to start local telemetry server
+  console.log('[App] Telemetry handled by VPS at:', API_URL);
 
   createWindow();
   createOverlay();
@@ -1306,9 +1322,46 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
-  console.log('[App] App is quitting. Stopping telemetry server...');
-  stopTelemetryServer();
+// Kill all Enigma Hub processes to prevent "exe is running" errors
+async function killAllEnigmaProcesses() {
+  try {
+    console.log('[Cleanup] Killing all Enigma Hub processes...');
+
+    // Try taskkill with /F (force) flag
+    await execAsync('taskkill /F /IM "Enigma Hub.exe" /T');
+    console.log('[Cleanup] ✅ All processes killed');
+  } catch (err) {
+    // Ignore errors - process might already be dead
+    console.log('[Cleanup] No processes to kill or already terminated');
+  }
+}
+
+app.on('will-quit', async (event) => {
+  console.log('[App] App is quitting...');
+
+  // Prevent default quit to allow cleanup
+  event.preventDefault();
+
+  // Kill all processes
+  await killAllEnigmaProcesses();
+
+  // Now quit for real
+  app.exit(0);
+});
+
+// Force quit all processes when app quits
+app.on('before-quit', () => {
+  console.log('[App] Before quit - cleaning up...');
+
+  // Force close all windows
+  const windows = BrowserWindow.getAllWindows();
+  windows.forEach(window => {
+    try {
+      window.destroy();
+    } catch (err) {
+      console.error('[App] Error destroying window:', err);
+    }
+  });
 });
 
 app.on('browser-window-created', (_, window) => {
