@@ -24,6 +24,33 @@ const { autoUpdater } = pkg;
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
+// Auto-updater event listeners
+autoUpdater.on('checking-for-update', () => {
+  console.log('[AutoUpdater] Checking for updates...');
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('[AutoUpdater] ✅ Update available:', info.version);
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('[AutoUpdater] No updates available. Current version:', info.version);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  const percent = Math.round(progressObj.percent);
+  console.log(`[AutoUpdater] Download progress: ${percent}%`);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
+  console.log('[AutoUpdater] Will install on app quit');
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('[AutoUpdater] ❌ Error:', err.message);
+});
+
 const GITHUB_OWNER = 'Echo-Jsatfield';
 const GITHUB_REPO = 'enigma-hub-betaprogram';
 const UPDATE_CHECK_INTERVAL = 1000 * 60 * 60 * 2; // 2 hours
