@@ -31,6 +31,12 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] ✅ Update available:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes || ''
+    });
+  }
 });
 
 autoUpdater.on('update-not-available', (info) => {
@@ -40,11 +46,24 @@ autoUpdater.on('update-not-available', (info) => {
 autoUpdater.on('download-progress', (progressObj) => {
   const percent = Math.round(progressObj.percent);
   console.log(`[AutoUpdater] Download progress: ${percent}%`);
+  if (mainWindow) {
+    mainWindow.webContents.send('download-progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    });
+  }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
   console.log('[AutoUpdater] Will install on app quit');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', {
+      version: info.version,
+      releaseNotes: info.releaseNotes || ''
+    });
+  }
 });
 
 autoUpdater.on('error', (err) => {
