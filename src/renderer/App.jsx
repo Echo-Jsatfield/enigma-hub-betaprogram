@@ -18,6 +18,8 @@ import Dashboard from "./components/Dashboard/Dashboard";
 import PendingApprovals from "./components/Admin/PendingApprovals";
 import UserManagement from "./components/Admin/UserManagement";
 import Jobs from "./components/Jobs/Jobs";
+import MyJobs from "./components/Jobs/MyJobs";
+import CompanyJobs from "./components/Jobs/CompanyJobs";
 import Profile from "./components/Profile/Profile";
 import Settings from "./components/Settings/Settings";
 import DownloadsPage from "../pages/DownloadsPage";
@@ -86,9 +88,13 @@ export default function App() {
       case "driver-reset":
         return <DriverReset />;
       case "job-manager":
-      return <JobManager />;
+        return <JobManager />;
       case "jobs":
         return <Jobs />;
+      case "my-jobs":
+        return <MyJobs />;
+      case "company-jobs":
+        return <CompanyJobs />;
       case "profile":
         return <Profile />;
       case "downloads":

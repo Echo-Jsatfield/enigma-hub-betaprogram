@@ -12,6 +12,7 @@ import {
   Award,
   MapPin,
   Clock,
+  RefreshCw,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -122,6 +123,7 @@ export default function DriverReset() {
   }, []);
 
   const fetchDrivers = async () => {
+    setLoading(true);
     try {
       const response = await api.get("/admin/users");
       const allUsers = response.data;
@@ -265,11 +267,23 @@ export default function DriverReset() {
             Manage driver data and statistics
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/40 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-md shadow-amber-900/40">
-          <AlertTriangle className="w-5 h-5 text-amber-400" />
-          <span className="text-amber-400 font-semibold text-sm">
-            Testing Mode
-          </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchDrivers}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg, #2d1b5c, #6A0DAD)" }}
+            title="Refresh driver list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/40 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-md shadow-amber-900/40">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <span className="text-amber-400 font-semibold text-sm">
+              Testing Mode
+            </span>
+          </div>
         </div>
       </div>
 

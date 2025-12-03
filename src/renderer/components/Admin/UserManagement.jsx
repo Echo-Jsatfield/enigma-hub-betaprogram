@@ -11,6 +11,11 @@ import {
   Save,
   Lock,
   AlertTriangle,
+  UserPlus,
+  Copy,
+  CheckCircle,
+  User as UserIcon,
+  RefreshCw,
 } from "lucide-react";
 import api from "../../services/api";
 
@@ -50,14 +55,31 @@ export default function UserManagement() {
     suspended: false,
   });
 
+  // Add Driver Modal State
+  const [showAddDriverModal, setShowAddDriverModal] = useState(false);
+  const [addDriverForm, setAddDriverForm] = useState({
+    username: "",
+    email: "",
+    steamId: "",
+  });
+  const [inviteCode, setInviteCode] = useState("");
+  const [addDriverLoading, setAddDriverLoading] = useState(false);
+  const [addDriverError, setAddDriverError] = useState("");
+  const [codeCopied, setCodeCopied] = useState(false);
+
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
       const response = await api.get("/admin/users");
+      console.log("🔍 Full API response:", response.data);
+      console.log("🔍 First user:", response.data[0]);
+      console.log("🔍 First user avatar:", response.data[0]?.avatar);
+      console.log("🔍 Avatar type:", typeof response.data[0]?.avatar);
       setUsers(response.data);
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -96,6 +118,18 @@ export default function UserManagement() {
       }
 
       await api.put(`/admin/users/${editingUser}`, editForm);
+
+      // Log the action
+      await api.post("/admin/system-logs", {
+        action: "USER_UPDATE",
+        target_user: editForm.username,
+        meta: {
+          roles: editForm.roles,
+          approved: editForm.approved,
+          suspended: editForm.suspended
+        }
+      });
+
       await fetchUsers();
       setEditingUser(null);
     } catch (error) {
@@ -104,10 +138,19 @@ export default function UserManagement() {
   };
 
   const handleDelete = async (userId) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
+    const user = users.find(u => u.id === userId);
+    if (!confirm(`Are you sure you want to delete ${user?.username}?`)) return;
 
     try {
       await api.delete(`/admin/users/${userId}`);
+
+      // Log the action
+      await api.post("/admin/system-logs", {
+        action: "USER_DELETE",
+        target_user: user?.username,
+        meta: { userId }
+      });
+
       await fetchUsers();
     } catch (error) {
       console.error("Failed to delete user:", error);
@@ -133,6 +176,14 @@ export default function UserManagement() {
         `/users/admin/${resetPasswordUser.id}/reset-password`,
         { newPassword }
       );
+
+      // Log the action
+      await api.post("/admin/system-logs", {
+        action: "PASSWORD_RESET",
+        target_user: resetPasswordUser.username,
+        meta: { adminReset: true }
+      });
+
       alert(`Password reset successfully for ${resetPasswordUser.username}`);
       setResetPasswordUser(null);
       setNewPassword("");
@@ -146,6 +197,62 @@ export default function UserManagement() {
     } finally {
       setPasswordLoading(false);
     }
+  };
+
+  const handleAddDriver = async () => {
+    setAddDriverError("");
+    setAddDriverLoading(true);
+
+    // Validation
+    if (!addDriverForm.username || !addDriverForm.steamId) {
+      setAddDriverError("Username and Steam ID are required");
+      setAddDriverLoading(false);
+      return;
+    }
+
+    try {
+      // Generate invite code and create pending driver
+      const response = await api.post("/admin/add-driver", {
+        username: addDriverForm.username,
+        email: addDriverForm.email,
+        steam_id: addDriverForm.steamId,
+      });
+
+      setInviteCode(response.data.inviteCode);
+
+      // Log the action
+      await api.post("/admin/system-logs", {
+        action: "DRIVER_ADDED",
+        target_user: addDriverForm.username,
+        meta: {
+          steam_id: addDriverForm.steamId,
+          email: addDriverForm.email
+        }
+      });
+
+      // Refresh users list
+      await fetchUsers();
+    } catch (error) {
+      setAddDriverError(
+        error.response?.data?.error || "Failed to add driver"
+      );
+    } finally {
+      setAddDriverLoading(false);
+    }
+  };
+
+  const copyInviteCode = () => {
+    navigator.clipboard.writeText(inviteCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
+  const closeAddDriverModal = () => {
+    setShowAddDriverModal(false);
+    setAddDriverForm({ username: "", email: "", steamId: "" });
+    setInviteCode("");
+    setAddDriverError("");
+    setCodeCopied(false);
   };
 
   const filteredUsers = users
@@ -206,6 +313,26 @@ export default function UserManagement() {
               View, edit, approve and secure all Enigma Hub accounts.
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: "linear-gradient(135deg, #2d1b5c, #6A0DAD)" }}
+            title="Refresh user list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            onClick={() => setShowAddDriverModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all hover:scale-105"
+            style={{ background: "linear-gradient(135deg, #6A0DAD, #f8cc00)" }}
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Driver
+          </button>
         </div>
       </div>
 
@@ -300,7 +427,26 @@ export default function UserManagement() {
                   {/* USER */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6A0DAD] to-[#f8cc00] flex items-center justify-center text-white font-semibold shadow-md shadow-black/70">
+                      {user.avatar && user.avatar.trim() !== "" ? (
+                        <img
+                          src={user.avatar}
+                          alt={user.username}
+                          className="w-10 h-10 rounded-full object-cover border-2 shadow-md shadow-black/70"
+                          style={{ borderColor: "#f8cc00" }}
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                            if (e.target.nextElementSibling) {
+                              e.target.nextElementSibling.style.display = "flex";
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6A0DAD] to-[#f8cc00] flex items-center justify-center text-white font-semibold shadow-md shadow-black/70"
+                        style={{
+                          display: user.avatar && user.avatar.trim() !== "" ? "none" : "flex",
+                        }}
+                      >
                         {user.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -543,6 +689,186 @@ export default function UserManagement() {
                   Save Changes
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ADD DRIVER MODAL */}
+      <AnimatePresence>
+        {showAddDriverModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={closeAddDriverModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#18122b] rounded-2xl p-6 w-full max-w-md border border-[#2d1b5c] shadow-2xl shadow-black/80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <UserPlus className="w-6 h-6 text-[#f8cc00]" />
+                  <h2 className="text-xl font-semibold text-slate-50">
+                    Add New Driver
+                  </h2>
+                </div>
+                <button
+                  onClick={closeAddDriverModal}
+                  className="p-2 rounded-lg hover:bg-[#2d1b5c]/70 transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              {!inviteCode ? (
+                <>
+                  <div className="flex items-start gap-3 p-4 bg-sky-900/20 border border-sky-700 rounded-lg mb-4">
+                    <AlertTriangle className="w-5 h-5 text-sky-300 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-sky-200 mb-1">
+                        Manual Driver Registration
+                      </p>
+                      <p className="text-xs text-sky-200/90">
+                        Create a driver account with invite code. The driver will receive a password reset link upon first login.
+                      </p>
+                    </div>
+                  </div>
+
+                  {addDriverError && (
+                    <div className="p-3 bg-red-900/20 border border-red-800 rounded-lg mb-4">
+                      <p className="text-xs text-red-200">{addDriverError}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200 mb-2">
+                        Username <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={addDriverForm.username}
+                        onChange={(e) =>
+                          setAddDriverForm({ ...addDriverForm, username: e.target.value })
+                        }
+                        className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#6A0DAD]"
+                        placeholder="Driver username"
+                        disabled={addDriverLoading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200 mb-2">
+                        Email (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={addDriverForm.email}
+                        onChange={(e) =>
+                          setAddDriverForm({ ...addDriverForm, email: e.target.value })
+                        }
+                        className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#6A0DAD]"
+                        placeholder="driver@example.com"
+                        disabled={addDriverLoading}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200 mb-2">
+                        Steam ID <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={addDriverForm.steamId}
+                        onChange={(e) =>
+                          setAddDriverForm({ ...addDriverForm, steamId: e.target.value })
+                        }
+                        className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#6A0DAD]"
+                        placeholder="76561198XXXXXXXXX"
+                        disabled={addDriverLoading}
+                      />
+                    </div>
+
+                    <div className="flex gap-3 pt-3">
+                      <button
+                        onClick={handleAddDriver}
+                        disabled={addDriverLoading}
+                        className="flex-1 px-4 py-2.5 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-semibold shadow-md shadow-black/70"
+                        style={{ background: "linear-gradient(135deg, #6A0DAD, #f8cc00)" }}
+                      >
+                        {addDriverLoading ? "Creating..." : "Generate Invite Code"}
+                      </button>
+                      <button
+                        onClick={closeAddDriverModal}
+                        disabled={addDriverLoading}
+                        className="flex-1 px-4 py-2.5 bg-[#2d1b5c] hover:bg-[#3a2370] text-slate-100 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-start gap-3 p-4 bg-emerald-900/20 border border-emerald-700 rounded-lg mb-4">
+                    <CheckCircle className="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-200 mb-1">
+                        Driver Created Successfully!
+                      </p>
+                      <p className="text-xs text-emerald-200/90">
+                        Share this invite code with <span className="font-semibold">{addDriverForm.username}</span>. It will be deleted after use.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-200 mb-2">
+                        Invite Code
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={inviteCode}
+                          readOnly
+                          className="flex-1 px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 font-mono text-lg tracking-wide"
+                        />
+                        <button
+                          onClick={copyInviteCode}
+                          className="px-4 py-2 bg-[#2d1b5c] hover:bg-[#3a2370] rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          {codeCopied ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 text-emerald-400" />
+                              <span className="text-sm text-emerald-400">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4 text-slate-300" />
+                              <span className="text-sm text-slate-300">Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={closeAddDriverModal}
+                      className="w-full px-4 py-2.5 text-white rounded-lg transition-colors font-semibold shadow-md shadow-black/70"
+                      style={{ background: "linear-gradient(135deg, #6A0DAD, #f8cc00)" }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}

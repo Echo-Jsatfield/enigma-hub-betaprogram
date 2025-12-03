@@ -1,6 +1,6 @@
 // src/pages/Profile.jsx - Next Gen Profile (self-profile, no react-router)
 import React, { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
   Mail,
@@ -18,6 +18,8 @@ import {
   Image as ImageIcon,
   Activity,
   Star,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
@@ -37,6 +39,10 @@ export default function Profile() {
   const [editingBanner, setEditingBanner] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(user?.banner || "");
   const [tempBanner, setTempBanner] = useState("");
+
+  // Game section expansion states
+  const [ets2Expanded, setEts2Expanded] = useState(true);
+  const [atsExpanded, setAtsExpanded] = useState(true);
 
   // Achievements placeholder – safe to keep empty for now,
   // later we can fill from /jobs/my-achievements or similar.
@@ -189,6 +195,13 @@ export default function Profile() {
     if (!stats) return 0;
     return Number(stats.avg_income || 0);
   }, [stats]);
+
+  // Group jobs by game
+  const jobsByGame = useMemo(() => {
+    const ets2Jobs = recentJobs.filter(job => job.game === "ETS2");
+    const atsJobs = recentJobs.filter(job => job.game === "ATS");
+    return { ets2Jobs, atsJobs };
+  }, [recentJobs]);
 
   if (loading) {
     return (
@@ -737,139 +750,108 @@ export default function Profile() {
           </span>
         </div>
 
-        <div className="space-y-4">
-          {recentJobs.length > 0 ? (
-            recentJobs.map((job) => (
-              <div
-                key={job.id || job.job_number}
-                className="p-4 rounded-xl border transition-colors"
-                style={{
-                  backgroundColor: "#12051a",
-                  borderColor: "#2c1e3a",
-                }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-slate-100">
-                      {job.cargo_display || "Unknown Cargo"}
-                    </span>
-                    {job.is_quick_job && (
-                      <Zap className="w-4 h-4 text-[#f8cc00]" />
+        {recentJobs.length > 0 ? (
+          <div className="space-y-4">
+            {/* ETS2 Section */}
+            {jobsByGame.ets2Jobs.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setEts2Expanded(!ets2Expanded)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
+                  style={{
+                    backgroundColor: "#12051a",
+                    borderColor: "#2c1e3a",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    {ets2Expanded ? (
+                      <ChevronDown className="w-4 h-4 text-sky-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-sky-400" />
                     )}
-                    {job.mod_source && getModBadge(job.mod_source)}
+                    <span className="text-sm font-semibold text-slate-100">
+                      Euro Truck Simulator 2
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-900/60 text-sky-200">
+                      {jobsByGame.ets2Jobs.length}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`px-3 py-1 text-[11px] font-semibold rounded-full ${
-                        job.status === "completed"
-                          ? "bg-emerald-900 text-emerald-200"
-                          : job.status === "active"
-                          ? "bg-sky-900 text-sky-200"
-                          : "bg-red-900 text-red-200"
-                      }`}
+                </button>
+
+                <AnimatePresence>
+                  {ets2Expanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
                     >
-                      {job.status}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {job.game}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-300 mb-3">
-                  <MapPin className="w-4 h-4" />
-                  <span>
-                    {job.pickup_city_display || "Unknown"} →{" "}
-                    {job.delivery_city_display || "Unknown"}
-                  </span>
-                </div>
-
-                {job.status === "completed" && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-slate-800">
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        Distance
-                      </p>
-                      <p className="text-xs font-semibold text-slate-100">
-                        {Number(job.actual_distance || 0).toFixed(0)} km
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        Income
-                      </p>
-                      <p className="text-xs font-semibold text-emerald-300">
-                        $
-                        {Number(job.total_income || 0).toLocaleString(
-                          undefined,
-                          { maximumFractionDigits: 0 }
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        Damage
-                      </p>
-                      <p className="text-xs font-semibold text-orange-400">
-                        {Number(job.damage_percent || 0).toFixed(1)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1">
-                        Race Miles
-                      </p>
-                      <p
-                        className={
-                          "text-xs font-semibold " +
-                          getRaceMilesColor(job.race_percentage)
-                        }
-                      >
-                        {Number(job.race_percentage || 0).toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {job.status === "cancelled" && (
-                  <p className="text-xs text-red-400 pt-3 border-t border-slate-800">
-                    Cancelled:{" "}
-                    {job.cancel_reason?.replace(/_/g, " ") ||
-                      "Unknown reason"}
-                  </p>
-                )}
-
-                {job.flagged && (
-                  <div className="mt-3 p-2 bg-red-950/40 border border-red-800 rounded">
-                    <p className="text-[11px] text-red-300 font-semibold">
-                      🚨 Flagged:{" "}
-                      {job.flag_reasons?.join(", ").replace(/_/g, " ") ||
-                        "Review required"}
-                    </p>
-                  </div>
-                )}
-
-                <p className="text-[11px] text-slate-500 mt-3">
-                  {job.completed_at
-                    ? `Completed ${new Date(
-                        job.completed_at
-                      ).toLocaleString()}`
-                    : job.started_at
-                    ? `Started ${new Date(
-                        job.started_at
-                      ).toLocaleString()}`
-                    : ""}
-                </p>
+                      <div className="mt-2 space-y-3">
+                        {jobsByGame.ets2Jobs.map((job) => (
+                          <JobCard key={job.id || job.job_number} job={job} getRaceMilesColor={getRaceMilesColor} getModBadge={getModBadge} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            ))
-          ) : (
-            <div className="text-center py-10">
-              <Package className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-              <p className="text-sm text-slate-400">
-                No jobs yet. Start driving!
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+
+            {/* ATS Section */}
+            {jobsByGame.atsJobs.length > 0 && (
+              <div>
+                <button
+                  onClick={() => setAtsExpanded(!atsExpanded)}
+                  className="w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
+                  style={{
+                    backgroundColor: "#12051a",
+                    borderColor: "#2c1e3a",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    {atsExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-orange-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-orange-400" />
+                    )}
+                    <span className="text-sm font-semibold text-slate-100">
+                      American Truck Simulator
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-900/60 text-orange-200">
+                      {jobsByGame.atsJobs.length}
+                    </span>
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {atsExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-2 space-y-3">
+                        {jobsByGame.atsJobs.map((job) => (
+                          <JobCard key={job.id || job.job_number} job={job} getRaceMilesColor={getRaceMilesColor} getModBadge={getModBadge} />
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-10">
+            <Package className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm text-slate-400">
+              No jobs yet. Start driving!
+            </p>
+          </div>
+        )}
       </motion.div>
     </div>
   );
@@ -894,6 +876,136 @@ function HeaderStat({ label, value, icon: Icon }) {
       <div className="mt-1 text-sm font-semibold text-slate-50 truncate">
         {value}
       </div>
+    </div>
+  );
+}
+
+function JobCard({ job, getRaceMilesColor, getModBadge }) {
+  return (
+    <div
+      className="p-4 rounded-xl border transition-colors"
+      style={{
+        backgroundColor: "#12051a",
+        borderColor: "#2c1e3a",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-slate-100">
+            {job.cargo_display || "Unknown Cargo"}
+          </span>
+          {job.is_quick_job && (
+            <Zap className="w-4 h-4 text-[#f8cc00]" />
+          )}
+          {job.mod_source && getModBadge(job.mod_source)}
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="font-mono text-xs px-2 py-0.5 rounded"
+            style={{
+              color: "#f8cc00",
+              backgroundColor: "rgba(248, 204, 0, 0.1)"
+            }}
+          >
+            #{job.job_number || job.job_id || "N/A"}
+          </span>
+          <span
+            className={`px-3 py-1 text-[11px] font-semibold rounded-full ${
+              job.status === "completed"
+                ? "bg-emerald-900 text-emerald-200"
+                : job.status === "active"
+                ? "bg-sky-900 text-sky-200"
+                : "bg-red-900 text-red-200"
+            }`}
+          >
+            {job.status}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-slate-300 mb-3">
+        <MapPin className="w-4 h-4" />
+        <span>
+          {job.pickup_city_display || "Unknown"} →{" "}
+          {job.delivery_city_display || "Unknown"}
+        </span>
+      </div>
+
+      {job.status === "completed" && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-3 border-t border-slate-800">
+          <div>
+            <p className="text-[11px] text-slate-500 mb-1">
+              Distance
+            </p>
+            <p className="text-xs font-semibold text-slate-100">
+              {Number(job.actual_distance || 0).toFixed(0)} km
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-500 mb-1">
+              Income
+            </p>
+            <p className="text-xs font-semibold text-emerald-300">
+              $
+              {Number(job.total_income || 0).toLocaleString(
+                undefined,
+                { maximumFractionDigits: 0 }
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-500 mb-1">
+              Damage
+            </p>
+            <p className="text-xs font-semibold text-orange-400">
+              {Number(job.damage_percent || 0).toFixed(1)}%
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-slate-500 mb-1">
+              Race Miles
+            </p>
+            <p
+              className={
+                "text-xs font-semibold " +
+                getRaceMilesColor(job.race_percentage)
+              }
+            >
+              {Number(job.race_percentage || 0).toFixed(1)}%
+            </p>
+          </div>
+        </div>
+      )}
+
+      {job.status === "cancelled" && (
+        <p className="text-xs text-red-400 pt-3 border-t border-slate-800">
+          Cancelled:{" "}
+          {job.cancel_reason?.replace(/_/g, " ") ||
+            "Unknown reason"}
+        </p>
+      )}
+
+      {job.flagged && (
+        <div className="mt-3 p-2 bg-red-950/40 border border-red-800 rounded">
+          <p className="text-[11px] text-red-300 font-semibold">
+            🚨 Flagged:{" "}
+            {job.flag_reasons?.join(", ").replace(/_/g, " ") ||
+              "Review required"}
+          </p>
+        </div>
+      )}
+
+      <p className="text-[11px] text-slate-500 mt-3">
+        {job.completed_at
+          ? `Completed ${new Date(
+              job.completed_at
+            ).toLocaleString()}`
+          : job.started_at
+          ? `Started ${new Date(
+              job.started_at
+            ).toLocaleString()}`
+          : ""}
+      </p>
     </div>
   );
 }

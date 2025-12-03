@@ -270,43 +270,7 @@ export default function JobManager() {
           <p className="text-sm text-slate-400">
             The job manager is restricted to staff members.
           </p>
-          {/* Hard Delete Modal */}
-      {showHardDeleteModal && selectedJob && (
-        <Modal
-          onClose={() => setShowHardDeleteModal(false)}
-          title="Permanently Delete Job"
-        >
-          <div className="space-y-3 text-sm text-slate-100">
-            <p className="text-red-400 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 mt-0.5" />
-              WARNING: This action cannot be undone. The job record will be
-              permanently removed from the database.
-            </p>
-            <DetailRow
-              label="Job"
-              value={`#${selectedJob.job_number} - ${
-                selectedJob.username || "Unknown"
-              }`}
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowHardDeleteModal(false)}
-                className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-700/30 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmHardDelete}
-                disabled={actionLoading}
-                className="rounded-lg bg-red-700 px-3 py-1 text-sm text-white hover:bg-red-800 transition-colors disabled:opacity-50"
-              >
-                {actionLoading ? "Deleting..." : "Confirm Hard Delete"}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
+        </div>
       </div>
     );
   }
@@ -535,15 +499,16 @@ export default function JobManager() {
                       <button
                         onClick={() => openDeleteModal(job)}
                         className="rounded-lg border border-red-500/70 px-2 py-1 text-[11px] text-red-300 hover:bg-red-500/10 transition-colors"
+                        title="Soft delete (mark as deleted)"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
                       <button
                         onClick={() => openHardDeleteModal(job)}
                         className="rounded-lg border border-red-700/70 px-2 py-1 text-[11px] text-red-500 hover:bg-red-700/10 transition-colors"
-                        title="Permanently delete job"
+                        title="Hard delete (permanent)"
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <X className="w-3 h-3 stroke-[3]" />
                       </button>
                     </div>
                   </td>
@@ -556,68 +521,107 @@ export default function JobManager() {
 
       {/* Edit Modal */}
       {showEditModal && selectedJob && (
-        <Modal onClose={() => setShowEditModal(false)} title="Edit Job">
-          <div className="space-y-3 text-sm text-slate-100">
+        <Modal onClose={() => setShowEditModal(false)} title={`Edit Job #${selectedJob.job_number}`}>
+          <div className="space-y-4 text-sm text-slate-100">
+            {/* Job Info Header */}
+            <div className="pb-3 border-b border-[#2c1e3a]">
+              <div className="text-xs text-slate-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>Driver:</span>
+                  <span className="text-slate-100 font-medium">{selectedJob.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cargo:</span>
+                  <span className="text-slate-100">{selectedJob.cargo_display || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Route:</span>
+                  <span className="text-slate-100">{selectedJob.pickup_city_display} → {selectedJob.delivery_city_display}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Editable Fields */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-xs text-slate-400">
-                  Income
+                <label className="block mb-1.5 text-xs font-medium text-slate-400">
+                  💰 Income
                 </label>
-                <input
-                  type="number"
-                  value={editState.total_income}
-                  onChange={(e) =>
-                    handleEditChange("total_income", e.target.value)
-                  }
-                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                />
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editState.total_income}
+                    onChange={(e) =>
+                      handleEditChange("total_income", e.target.value)
+                    }
+                    className="w-full pl-6 pr-2 py-1.5 rounded-lg bg-[#050312] border border-[#332148] text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad] focus:ring-1 focus:ring-[#6a0dad]/60"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
               <div>
-                <label className="block mb-1 text-xs text-slate-400">
-                  Distance (km)
+                <label className="block mb-1.5 text-xs font-medium text-slate-400">
+                  📏 Distance
                 </label>
-                <input
-                  type="number"
-                  value={editState.actual_distance}
-                  onChange={(e) =>
-                    handleEditChange("actual_distance", e.target.value)
-                  }
-                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editState.actual_distance}
+                    onChange={(e) =>
+                      handleEditChange("actual_distance", e.target.value)
+                    }
+                    className="w-full pr-10 pl-2 py-1.5 rounded-lg bg-[#050312] border border-[#332148] text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad] focus:ring-1 focus:ring-[#6a0dad]/60"
+                    placeholder="0.0"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs">KM</span>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block mb-1 text-xs text-slate-400">
-                  Damage %
+                <label className="block mb-1.5 text-xs font-medium text-slate-400">
+                  💥 Damage
                 </label>
-                <input
-                  type="number"
-                  value={editState.damage_percent}
-                  onChange={(e) =>
-                    handleEditChange("damage_percent", e.target.value)
-                  }
-                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={editState.damage_percent}
+                    onChange={(e) =>
+                      handleEditChange("damage_percent", e.target.value)
+                    }
+                    className="w-full pr-8 pl-2 py-1.5 rounded-lg bg-[#050312] border border-[#332148] text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad] focus:ring-1 focus:ring-[#6a0dad]/60"
+                    placeholder="0.00"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-xs">%</span>
+                </div>
               </div>
               <div>
-                <label className="block mb-1 text-xs text-slate-400">
-                  Status
+                <label className="block mb-1.5 text-xs font-medium text-slate-400">
+                  📊 Status
                 </label>
-                <input
-                  type="text"
+                <select
                   value={editState.status}
                   onChange={(e) =>
                     handleEditChange("status", e.target.value)
                   }
-                  className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                  placeholder="completed / abandoned / cancelled..."
-                />
+                  className="w-full px-2 py-1.5 rounded-lg bg-[#050312] border border-[#332148] text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad] focus:ring-1 focus:ring-[#6a0dad]/60 cursor-pointer"
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="abandoned">Abandoned</option>
+                </select>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#2c1e3a] bg-[#12051a]/60 transition-colors hover:bg-[#12051a]">
               <input
                 id="flagged"
                 type="checkbox"
@@ -625,45 +629,49 @@ export default function JobManager() {
                 onChange={(e) =>
                   handleEditChange("flagged", e.target.checked)
                 }
-                className="h-4 w-4 rounded border-[#3b234f] bg-[#050312] text-[#6a0dad] focus:ring-[#6a0dad]"
+                className="h-4 w-4 rounded border-[#3b234f] bg-[#050312] text-red-500 focus:ring-red-500/60 cursor-pointer"
               />
               <label
                 htmlFor="flagged"
-                className="text-xs text-slate-200 flex items-center gap-1"
+                className={`text-xs flex items-center gap-1.5 cursor-pointer select-none transition-colors ${
+                  editState.flagged ? "text-red-300 font-medium" : "text-slate-400"
+                }`}
               >
-                <Flag className="w-3 h-3 text-red-300" />
-                Mark as flagged
+                <Flag className={`w-4 h-4 transition-colors ${editState.flagged ? "text-red-400 fill-red-400/20" : "text-slate-500"}`} />
+                {editState.flagged ? "Flagged" : "Mark as flagged"}
               </label>
             </div>
 
-            <div>
-              <label className="block mb-1 text-xs text-slate-400">
-                Flag reasons / notes
-              </label>
-              <textarea
-                rows={3}
-                value={editState.flag_reasons}
-                onChange={(e) =>
-                  handleEditChange("flag_reasons", e.target.value)
-                }
-                className="w-full rounded-lg bg-[#050312] border border-[#332148] px-2 py-1 text-sm text-slate-100 focus:outline-none focus:border-[#6a0dad]"
-                placeholder="Why is this job flagged?"
-              />
-            </div>
+            {editState.flagged && (
+              <div>
+                <label className="block mb-1.5 text-xs font-medium text-red-300">
+                  🚩 Flag Reasons / Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={editState.flag_reasons}
+                  onChange={(e) =>
+                    handleEditChange("flag_reasons", e.target.value)
+                  }
+                  className="w-full rounded-lg bg-[#050312] border border-red-500/30 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-red-500/60 focus:ring-1 focus:ring-red-500/30"
+                  placeholder="Describe why this job is flagged..."
+                />
+              </div>
+            )}
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#2c1e3a]">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-3 py-1.5 rounded-lg border border-[#2c1e3a] text-xs text-slate-200 hover:bg-[#1b1024]/80 transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#2c1e3a] text-xs text-slate-200 hover:bg-[#1b1024]/80 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={submitEdit}
                 disabled={actionLoading}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#6a0dad] via-[#8b5cf6] to-[#22d3ee] text-xs text-white hover:brightness-110 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#6a0dad] via-[#8b5cf6] to-[#22d3ee] text-xs font-medium text-white hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"
               >
-                Save Changes
+                {actionLoading ? "Saving..." : "Save Changes"}
               </button>
             </div>
           </div>
@@ -797,6 +805,42 @@ export default function JobManager() {
         </Modal>
       )}
 
+      {/* Hard Delete Modal */}
+      {showHardDeleteModal && selectedJob && (
+        <Modal
+          onClose={() => setShowHardDeleteModal(false)}
+          title="Permanently Delete Job"
+        >
+          <div className="space-y-3 text-sm text-slate-100">
+            <p className="text-red-400 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5" />
+              WARNING: This action cannot be undone. The job record will be
+              permanently removed from the database.
+            </p>
+            <DetailRow
+              label="Job"
+              value={`#${selectedJob.job_number} - ${
+                selectedJob.username || "Unknown"
+              }`}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowHardDeleteModal(false)}
+                className="rounded-lg border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-700/30 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmHardDelete}
+                disabled={actionLoading}
+                className="rounded-lg bg-red-700 px-3 py-1 text-sm text-white hover:bg-red-800 transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? "Deleting..." : "Confirm Hard Delete"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </div>
   );
@@ -804,17 +848,17 @@ export default function JobManager() {
 
 function Modal({ title, children, onClose }) {
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg rounded-2xl bg-[#120b21] border border-[#3b234f] shadow-2xl shadow-black/80 p-4"
+        className="w-full max-w-2xl rounded-2xl bg-[#120b21] border border-[#3b234f] shadow-2xl shadow-black/80 p-5"
       >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-50">{title}</h2>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#2c1e3a]">
+          <h2 className="text-base font-semibold text-slate-50">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-[#1b1024]/80 text-slate-300 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[#1b1024]/80 text-slate-400 hover:text-slate-200 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

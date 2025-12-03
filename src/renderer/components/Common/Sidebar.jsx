@@ -1,6 +1,6 @@
 // src/components/Layout/Sidebar.jsx
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Users,
@@ -12,6 +12,11 @@ import {
   Settings,
   LogOut,
   RotateCcw,
+  ChevronDown,
+  ChevronRight,
+  Building2,
+  UserCircle,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
@@ -27,6 +32,8 @@ export default function Sidebar({
   const { user, logout, isStaff, getRolesString } = useAuth();
   const { confirm } = useModal();
   const [appVersion, setAppVersion] = useState("...");
+  const [jobsExpanded, setJobsExpanded] = useState(false);
+  const [adminExpanded, setAdminExpanded] = useState(false);
 
   useEffect(() => {
     // Get app version from Electron
@@ -108,56 +115,103 @@ export default function Sidebar({
           onClick={() => setCurrentPage("dashboard")}
         />
 
-        {/* ===== ADMIN/STAFF ONLY ITEMS ===== */}
+        {/* Pending Approvals (staff only, standalone) */}
         {isStaff() && (
-          <>
-            <NavItem
-              icon={<CheckCircle size={18} />}
-              label="Pending Approvals"
-              collapsed={collapsed}
-              active={currentPage === "pending-approvals"}
-              onClick={() => setCurrentPage("pending-approvals")}
-            />
-            <NavItem
-              icon={<Users size={18} />}
-              label="User Management"
-              collapsed={collapsed}
-              active={currentPage === "user-management"}
-              onClick={() => setCurrentPage("user-management")}
-            />
-            <NavItem
-              icon={<RotateCcw size={18} />}
-              label="Reset Tools"
-              collapsed={collapsed}
-              active={currentPage === "driver-reset"}
-              onClick={() => setCurrentPage("driver-reset")}
-            />
-            <NavItem
-              icon={<FileText size={18} />}
-              label="System Logs"
-              collapsed={collapsed}
-              active={currentPage === "system-logs"}
-              onClick={() => setCurrentPage("system-logs")}
-            />
-            <NavItem
-              icon={<FileText size={18} />}
-              label="Job Manager"
-              collapsed={collapsed}
-              active={currentPage === "job-manager"}
-              onClick={() => setCurrentPage("job-manager")}
-            />
-          </>
+          <NavItem
+            icon={<CheckCircle size={18} />}
+            label="Pending Approvals"
+            collapsed={collapsed}
+            active={currentPage === "pending-approvals"}
+            onClick={() => setCurrentPage("pending-approvals")}
+          />
         )}
-        {/* ===== END ADMIN SECTION ===== */}
 
-        {/* General items - Everyone sees these */}
-        <NavItem
+        {/* Jobs Dropdown - Everyone sees this */}
+        <DropdownNavItem
           icon={<Truck size={18} />}
           label="Jobs"
           collapsed={collapsed}
-          active={currentPage === "jobs"}
-          onClick={() => setCurrentPage("jobs")}
-        />
+          expanded={jobsExpanded}
+          onToggle={() => setJobsExpanded(!jobsExpanded)}
+          isActive={currentPage === "my-jobs" || currentPage === "company-jobs"}
+        >
+          <SubNavItem
+            icon={<UserCircle size={16} />}
+            label="My Jobs"
+            active={currentPage === "my-jobs"}
+            onClick={() => {
+              setCurrentPage("my-jobs");
+              if (collapsed) setJobsExpanded(false);
+            }}
+          />
+          {isStaff() && (
+            <SubNavItem
+              icon={<Building2 size={16} />}
+              label="Company Jobs"
+              active={currentPage === "company-jobs"}
+              onClick={() => {
+                setCurrentPage("company-jobs");
+                if (collapsed) setJobsExpanded(false);
+              }}
+            />
+          )}
+        </DropdownNavItem>
+
+        {/* Admin Dropdown - Staff only */}
+        {isStaff() && (
+          <DropdownNavItem
+            icon={<Shield size={18} />}
+            label="Admin"
+            collapsed={collapsed}
+            expanded={adminExpanded}
+            onToggle={() => setAdminExpanded(!adminExpanded)}
+            isActive={
+              currentPage === "job-manager" ||
+              currentPage === "user-management" ||
+              currentPage === "system-logs" ||
+              currentPage === "driver-reset"
+            }
+          >
+            <SubNavItem
+              icon={<FileText size={16} />}
+              label="Job Manager"
+              active={currentPage === "job-manager"}
+              onClick={() => {
+                setCurrentPage("job-manager");
+                if (collapsed) setAdminExpanded(false);
+              }}
+            />
+            <SubNavItem
+              icon={<Users size={16} />}
+              label="User Management"
+              active={currentPage === "user-management"}
+              onClick={() => {
+                setCurrentPage("user-management");
+                if (collapsed) setAdminExpanded(false);
+              }}
+            />
+            <SubNavItem
+              icon={<FileText size={16} />}
+              label="System Logs"
+              active={currentPage === "system-logs"}
+              onClick={() => {
+                setCurrentPage("system-logs");
+                if (collapsed) setAdminExpanded(false);
+              }}
+            />
+            <SubNavItem
+              icon={<RotateCcw size={16} />}
+              label="Reset Tools"
+              active={currentPage === "driver-reset"}
+              onClick={() => {
+                setCurrentPage("driver-reset");
+                if (collapsed) setAdminExpanded(false);
+              }}
+            />
+          </DropdownNavItem>
+        )}
+
+        {/* General items - Everyone sees these */}
         <NavItem
           icon={<User size={18} />}
           label="Profile"
@@ -345,5 +399,87 @@ function NavItem({ icon, label, collapsed, active, onClick }) {
         <span className="text-sm font-medium tracking-wide">{label}</span>
       )}
     </motion.button>
+  );
+}
+
+function DropdownNavItem({ icon, label, collapsed, expanded, onToggle, isActive, children }) {
+  return (
+    <div>
+      <motion.button
+        whileHover={{ x: 5 }}
+        onClick={onToggle}
+        className={`flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 w-full ${
+          isActive
+            ? "text-slate-50 shadow-lg shadow-black/50 border-transparent"
+            : "text-slate-400 hover:text-slate-50 hover:border-[#6A0DAD]/60"
+        }`}
+        style={
+          isActive
+            ? {
+                backgroundImage:
+                  "linear-gradient(135deg, #6A0DAD, #f8cc00)",
+              }
+            : {
+                backgroundColor: "#0f0f20",
+                borderColor: "#2d1b5c",
+              }
+        }
+        title={collapsed ? label : undefined}
+      >
+        <div
+          className={`flex items-center justify-center ${
+            isActive ? "text-slate-950" : "text-slate-300"
+          }`}
+        >
+          {icon}
+        </div>
+        {!collapsed && (
+          <>
+            <span className="text-sm font-medium tracking-wide flex-1 text-left">
+              {label}
+            </span>
+            {expanded ? (
+              <ChevronDown size={16} className={isActive ? "text-slate-950" : "text-slate-400"} />
+            ) : (
+              <ChevronRight size={16} className={isActive ? "text-slate-950" : "text-slate-400"} />
+            )}
+          </>
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {expanded && !collapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="ml-4 mt-1 space-y-1 border-l-2 border-[#2d1b5c] pl-2">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function SubNavItem({ icon, label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 py-1.5 px-3 rounded-lg transition-all duration-150 w-full text-left ${
+        active
+          ? "bg-[#6A0DAD]/30 text-slate-50 border border-[#6A0DAD]/50"
+          : "text-slate-400 hover:text-slate-50 hover:bg-[#0f0f20]"
+      }`}
+    >
+      <div className={`flex items-center justify-center ${active ? "text-slate-50" : "text-slate-400"}`}>
+        {icon}
+      </div>
+      <span className="text-xs font-medium tracking-wide">{label}</span>
+    </button>
   );
 }
