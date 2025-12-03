@@ -10,10 +10,16 @@ export default function UpdateNotification() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    if (!api) return;
+    if (!api) {
+      console.log('[UpdateNotification] ⚠️ electronAPI not available');
+      return;
+    }
+
+    console.log('[UpdateNotification] Setting up event listeners');
 
     // electron-updater events (NOT custom)
     const unsubscribeAvailable = api.onUpdateAvailable((payload) => {
+      console.log('[UpdateNotification] 📥 Received update-available:', payload);
       setVersion(payload.version);
       setNotes(payload.releaseNotes || "");
       setStatus("available");
@@ -21,16 +27,19 @@ export default function UpdateNotification() {
     });
 
     const unsubscribeProgress = api.onDownloadProgress((payload) => {
+      console.log('[UpdateNotification] 📊 Received download-progress:', payload.percent);
       setProgress(payload.percent || 0);
       if (status === "idle") setStatus("downloading");
     });
 
     const unsubscribeDownloaded = api.onUpdateDownloaded((payload) => {
+      console.log('[UpdateNotification] ✅ Received update-downloaded:', payload);
       setStatus("ready");
       setProgress(100);
     });
 
     return () => {
+      console.log('[UpdateNotification] Cleaning up event listeners');
       unsubscribeAvailable && unsubscribeAvailable();
       unsubscribeProgress && unsubscribeProgress();
       unsubscribeDownloaded && unsubscribeDownloaded();

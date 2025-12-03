@@ -31,11 +31,14 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] ✅ Update available:', info.version);
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    console.log('[AutoUpdater] Sending update-available to renderer');
     mainWindow.webContents.send('update-available', {
       version: info.version,
       releaseNotes: info.releaseNotes || ''
     });
+  } else {
+    console.log('[AutoUpdater] ⚠️ Cannot send update-available - window not ready');
   }
 });
 
@@ -46,7 +49,7 @@ autoUpdater.on('update-not-available', (info) => {
 autoUpdater.on('download-progress', (progressObj) => {
   const percent = Math.round(progressObj.percent);
   console.log(`[AutoUpdater] Download progress: ${percent}%`);
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('download-progress', {
       percent: progressObj.percent,
       transferred: progressObj.transferred,
@@ -58,11 +61,14 @@ autoUpdater.on('download-progress', (progressObj) => {
 autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
   console.log('[AutoUpdater] Will install on app quit');
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    console.log('[AutoUpdater] Sending update-downloaded to renderer');
     mainWindow.webContents.send('update-downloaded', {
       version: info.version,
       releaseNotes: info.releaseNotes || ''
     });
+  } else {
+    console.log('[AutoUpdater] ⚠️ Cannot send update-downloaded - window not ready');
   }
 });
 
