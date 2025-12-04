@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   installUpdate: () => ipcRenderer.send('install-update'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
 
   // Manual Update Manager (NEW - for DevPanel)
   downloadUpdate: (params) => ipcRenderer.invoke('download-update', params),

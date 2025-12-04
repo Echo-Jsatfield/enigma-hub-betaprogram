@@ -9,6 +9,9 @@ export default function UpdateNotification() {
   const [notes, setNotes] = useState("");
   const [progress, setProgress] = useState(0);
 
+  // DEBUG: Test if component renders
+  console.log('[UpdateNotification] Component rendered, status:', status);
+
   useEffect(() => {
     if (!api) {
       console.log('[UpdateNotification] ⚠️ electronAPI not available');
@@ -16,6 +19,18 @@ export default function UpdateNotification() {
     }
 
     console.log('[UpdateNotification] Setting up event listeners');
+
+    // Check if there's already a downloaded update waiting
+    (async () => {
+      const existingUpdate = await api.getUpdateStatus();
+      if (existingUpdate) {
+        console.log('[UpdateNotification] ✅ Found existing update:', existingUpdate);
+        setVersion(existingUpdate.version);
+        setNotes(existingUpdate.releaseNotes || "");
+        setStatus("ready");
+        setProgress(100);
+      }
+    })();
 
     // electron-updater events (NOT custom)
     const unsubscribeAvailable = api.onUpdateAvailable((payload) => {

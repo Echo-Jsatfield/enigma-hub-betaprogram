@@ -61,12 +61,16 @@ autoUpdater.on('download-progress', (progressObj) => {
 autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
   console.log('[AutoUpdater] Will install on app quit');
+
+  // Store update info for late-joining listeners
+  updateDownloadedInfo = {
+    version: info.version,
+    releaseNotes: info.releaseNotes || ''
+  };
+
   if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
     console.log('[AutoUpdater] Sending update-downloaded to renderer');
-    mainWindow.webContents.send('update-downloaded', {
-      version: info.version,
-      releaseNotes: info.releaseNotes || ''
-    });
+    mainWindow.webContents.send('update-downloaded', updateDownloadedInfo);
   } else {
     console.log('[AutoUpdater] ⚠️ Cannot send update-downloaded - window not ready');
   }
@@ -214,6 +218,7 @@ let mainWindow;
 let socket;
 let isWindowReady = false;
 let authToken = null;
+let updateDownloadedInfo = null; // Store update info for late-joining listeners
 
 // ============================================
 // PATH RESOLUTION
@@ -915,6 +920,12 @@ ipcMain.handle('check-for-updates', async () => {
     console.error('[AutoUpdater] Manual check error:', error);
     return { success: false, error: error.message };
   }
+});
+
+// Get current update status (for late-joining listeners)
+ipcMain.handle('get-update-status', () => {
+  console.log('[AutoUpdater] Renderer requested update status, stored info:', updateDownloadedInfo ? 'available' : 'none');
+  return updateDownloadedInfo;
 });
 
 // Install update (quit and install)
