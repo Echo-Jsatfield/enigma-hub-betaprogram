@@ -581,13 +581,10 @@ function createWindow() {
     mainWindow.loadFile(htmlPath);
   }
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[Window] ✅ Renderer loaded - ready for IPC');
-    isWindowReady = true;
-  });
-
   mainWindow.once('ready-to-show', () => {
     console.log('[Window] ✅ Window ready to show');
+    isWindowReady = true;
+    console.log('[Window] ✅ Renderer ready for IPC');
     mainWindow.show();
 
     // Initialize Socket.IO client
@@ -1353,44 +1350,24 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Kill all Enigma Hub processes to prevent "exe is running" errors
-async function killAllEnigmaProcesses() {
-  try {
-    console.log('[Cleanup] Killing all Enigma Hub processes...');
-
-    // Try taskkill with /F (force) flag
-    await execAsync('taskkill /F /IM "Enigma Hub.exe" /T');
-    console.log('[Cleanup] ✅ All processes killed');
-  } catch (err) {
-    // Ignore errors - process might already be dead
-    console.log('[Cleanup] No processes to kill or already terminated');
-  }
-}
-
-app.on('will-quit', async (event) => {
-  console.log('[App] App is quitting...');
-
-  // Prevent default quit to allow cleanup
-  event.preventDefault();
-
-  // Kill all processes
-  await killAllEnigmaProcesses();
-
-  // Now quit for real
-  app.exit(0);
-});
-
-// Force quit all processes when app quits
+// Cleanup on app quit
 app.on('before-quit', () => {
-  console.log('[App] Before quit - cleaning up...');
+  console.log('[App] Cleaning up before quit...');
 
-  // Force close all windows
+  // Disconnect socket
+  if (socket && socket.connected) {
+    socket.disconnect();
+  }
+
+  // Close all windows properly
   const windows = BrowserWindow.getAllWindows();
   windows.forEach(window => {
     try {
-      window.destroy();
+      if (!window.isDestroyed()) {
+        window.close();
+      }
     } catch (err) {
-      console.error('[App] Error destroying window:', err);
+      console.error('[Cleanup] Error closing window:', err);
     }
   });
 });
