@@ -25,25 +25,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // electron-updater (NSIS) - Auto-updater
   onUpdateAvailable: (callback) => {
-    const listener = (event, info) => {
-      console.log('[Preload] update-available received:', { event, info });
-      callback(info);
+    const listener = (_event, info) => {
+      console.log('[Preload] update-available received:', info);
+      if (info) callback(info);
     };
     ipcRenderer.on('update-available', listener);
     return () => ipcRenderer.removeListener('update-available', listener);
   },
   onDownloadProgress: (callback) => {
-    const listener = (event, progress) => {
-      console.log('[Preload] download-progress received:', { event, progress });
-      callback(progress);
+    const listener = (_event, progress) => {
+      console.log('[Preload] download-progress received:', progress);
+      if (progress) callback(progress);
     };
     ipcRenderer.on('download-progress', listener);
     return () => ipcRenderer.removeListener('download-progress', listener);
   },
   onUpdateDownloaded: (callback) => {
-    const listener = (event, info) => {
-      console.log('[Preload] update-downloaded received:', { event, info });
-      callback(info);
+    const listener = (_event, info) => {
+      console.log('[Preload] update-downloaded received:', info);
+      if (info) callback(info);
     };
     ipcRenderer.on('update-downloaded', listener);
     return () => ipcRenderer.removeListener('update-downloaded', listener);
