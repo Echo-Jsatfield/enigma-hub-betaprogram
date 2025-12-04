@@ -1,72 +1,39 @@
 // src/renderer/components/UpdateNotification.jsx
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const api = window.electronAPI;
 
 export default function UpdateNotification() {
-  const [status, setStatus] = useState("idle"); // idle | available | downloading | ready
-  const [version, setVersion] = useState(null);
-  const [notes, setNotes] = useState("");
-  const [progress, setProgress] = useState(0);
-
-  // DEBUG: Test if component renders
-  console.log('[UpdateNotification] Component rendered, status:', status);
+  const [updateInfo, setUpdateInfo] = useState(null);
 
   useEffect(() => {
-    if (!api) {
+    if (!api || !api.onUpdateNotification) {
       console.log('[UpdateNotification] ⚠️ electronAPI not available');
       return;
     }
 
-    console.log('[UpdateNotification] Setting up event listeners');
+    console.log('[UpdateNotification] ✅ Setting up simplified update listener');
 
-    // Check if there's already a downloaded update waiting
-    (async () => {
-      const existingUpdate = await api.getUpdateStatus();
-      if (existingUpdate) {
-        console.log('[UpdateNotification] ✅ Found existing update:', existingUpdate);
-        setVersion(existingUpdate.version);
-        setNotes(existingUpdate.releaseNotes || "");
-        setStatus("ready");
-        setProgress(100);
-      }
-    })();
-
-    // electron-updater events (NOT custom)
-    const unsubscribeAvailable = api.onUpdateAvailable((payload) => {
-      console.log('[UpdateNotification] 📥 Received update-available:', payload);
-      setVersion(payload.version);
-      setNotes(payload.releaseNotes || "");
-      setStatus("available");
-      setProgress(0);
+    // Single listener that receives all update events
+    api.onUpdateNotification((data) => {
+      console.log('[UpdateNotification] 📥 Received update notification:', data);
+      setUpdateInfo(data);
     });
+  }, []);
 
-    const unsubscribeProgress = api.onDownloadProgress((payload) => {
-      console.log('[UpdateNotification] 📊 Received download-progress:', payload.percent);
-      setProgress(payload.percent || 0);
-      if (status === "idle") setStatus("downloading");
-    });
-
-    const unsubscribeDownloaded = api.onUpdateDownloaded((payload) => {
-      console.log('[UpdateNotification] ✅ Received update-downloaded:', payload);
-      setStatus("ready");
-      setProgress(100);
-    });
-
-    return () => {
-      console.log('[UpdateNotification] Cleaning up event listeners');
-      unsubscribeAvailable && unsubscribeAvailable();
-      unsubscribeProgress && unsubscribeProgress();
-      unsubscribeDownloaded && unsubscribeDownloaded();
-    };
-  }, [status]);
-
-  const onRestart = async () => {
-    if (!api) return;
-    api.installUpdate();
+  const onRestart = () => {
+    if (api && api.installUpdate) {
+      api.installUpdate();
+    }
   };
 
-  if (status === "idle") return null;
+  const onDismiss = () => {
+    setUpdateInfo(null);
+  };
+
+  if (!updateInfo) return null;
+
+  const { status, version, progress = 0 } = updateInfo;
 
   return (
     <div className="fixed top-4 right-4 z-50 max-w-sm rounded-xl bg-[#141022] border border-purple-500/40 shadow-lg p-4 text-sm text-gray-100">
@@ -75,21 +42,21 @@ export default function UpdateNotification() {
           <div className="font-semibold text-purple-300 mb-1">
             Update available · v{version}
           </div>
-          <div className="text-xs text-gray-400 mb-3 line-clamp-3">
-            {notes || "A new version of Enigma Hub is ready to download."}
+          <div className="text-xs text-gray-400 mb-3">
+            A new version of Enigma Hub is ready to download.
           </div>
           <div className="flex justify-end gap-2">
             <button
               className="px-3 py-1.5 text-xs rounded-lg bg-gray-700/70 hover:bg-gray-600 transition"
-              onClick={() => setStatus("idle")}
+              onClick={onDismiss}
             >
               Later
             </button>
             <button
               className="px-3 py-1.5 text-xs rounded-lg bg-purple-600 hover:bg-purple-500 transition font-semibold"
-              onClick={() => setStatus("downloading")}
+              onClick={onDismiss}
             >
-              Download
+              Downloading...
             </button>
           </div>
         </>
@@ -125,7 +92,7 @@ export default function UpdateNotification() {
           <div className="flex justify-end gap-2">
             <button
               className="px-3 py-1.5 text-xs rounded-lg bg-gray-700/70 hover:bg-gray-600 transition"
-              onClick={() => setStatus("idle")}
+              onClick={onDismiss}
             >
               Later
             </button>

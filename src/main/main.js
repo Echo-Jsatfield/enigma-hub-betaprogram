@@ -32,13 +32,12 @@ autoUpdater.on('checking-for-update', () => {
 autoUpdater.on('update-available', (info) => {
   console.log('[AutoUpdater] ✅ Update available:', info.version);
   if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
-    console.log('[AutoUpdater] Sending update-available to renderer');
-    mainWindow.webContents.send('update-available', {
+    console.log('[AutoUpdater] Sending unified update notification');
+    mainWindow.webContents.send('update-notification', {
+      status: 'available',
       version: info.version,
-      releaseNotes: info.releaseNotes || ''
+      progress: 0
     });
-  } else {
-    console.log('[AutoUpdater] ⚠️ Cannot send update-available - window not ready');
   }
 });
 
@@ -50,10 +49,10 @@ autoUpdater.on('download-progress', (progressObj) => {
   const percent = Math.round(progressObj.percent);
   console.log(`[AutoUpdater] Download progress: ${percent}%`);
   if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
-    mainWindow.webContents.send('download-progress', {
-      percent: progressObj.percent,
-      transferred: progressObj.transferred,
-      total: progressObj.total
+    mainWindow.webContents.send('update-notification', {
+      status: 'downloading',
+      version: updateDownloadedInfo?.version || 'unknown',
+      progress: progressObj.percent
     });
   }
 });
@@ -62,17 +61,19 @@ autoUpdater.on('update-downloaded', (info) => {
   console.log('[AutoUpdater] ✅ Update downloaded! Version:', info.version);
   console.log('[AutoUpdater] Will install on app quit');
 
-  // Store update info for late-joining listeners
+  // Store update info
   updateDownloadedInfo = {
     version: info.version,
     releaseNotes: info.releaseNotes || ''
   };
 
   if (mainWindow && !mainWindow.isDestroyed() && isWindowReady) {
-    console.log('[AutoUpdater] Sending update-downloaded to renderer');
-    mainWindow.webContents.send('update-downloaded', updateDownloadedInfo);
-  } else {
-    console.log('[AutoUpdater] ⚠️ Cannot send update-downloaded - window not ready');
+    console.log('[AutoUpdater] Sending final update notification');
+    mainWindow.webContents.send('update-notification', {
+      status: 'ready',
+      version: info.version,
+      progress: 100
+    });
   }
 });
 

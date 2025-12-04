@@ -1,20 +1,46 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ============================================
+// WINDOW-LEVEL UPDATE EVENT EMITTER
+// This survives React re-renders!
+// ============================================
+let updateListeners = [];
+
+// Register IPC listener ONCE at preload time
+ipcRenderer.on('update-notification', (_event, data) => {
+  console.log('[Preload] 📥 Received update-notification, broadcasting to', updateListeners.length, 'listeners');
+  console.log('[Preload] Data:', data);
+
+  // Broadcast to all registered listeners
+  updateListeners.forEach(callback => {
+    try {
+      callback(data);
+    } catch (err) {
+      console.error('[Preload] Error calling update listener:', err);
+    }
+  });
+});
+
+console.log('[Preload] ✅ Window-level update emitter initialized');
+
+// ============================================
+// CONTEXT BRIDGE API
+// ============================================
 contextBridge.exposeInMainWorld('electronAPI', {
   // Telemetry
   telemetryUserLogin: (userData) => ipcRenderer.invoke('telemetry-user-login', userData),
   telemetryUserLogout: () => ipcRenderer.invoke('telemetry-user-logout'),
-  
+
   // Window controls
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
   toggleDevTools: () => ipcRenderer.send('toggle-devtools'),
   toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
-  
+
   // App info
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
-  
+
   // First run wizard
   checkFirstRun: () => ipcRenderer.invoke('check-first-run'),
   getGamePaths: () => ipcRenderer.invoke('get-game-paths'),
@@ -22,35 +48,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   validateGamePath: (path, game) => ipcRenderer.invoke('validate-game-path', path, game),
   saveGamePaths: (ets2Path, atsPath) => ipcRenderer.invoke('save-game-paths', ets2Path, atsPath),
   autoDetectGames: () => ipcRenderer.invoke('auto-detect-games'),
-  
-  // electron-updater (NSIS) - Auto-updater
-  onUpdateAvailable: (callback) => {
-    const listener = (_event, info) => {
-      console.log('[Preload] update-available received:', info);
-      if (info) callback(info);
+
+  // electron-updater - Window-level events (survives React re-renders)
+  onUpdateNotification: (callback) => {
+    console.log('[Preload] ✅ Registering update listener');
+    updateListeners.push(callback);
+
+    // Return unsubscribe function (optional, but good practice)
+    return () => {
+      const index = updateListeners.indexOf(callback);
+      if (index > -1) {
+        updateListeners.splice(index, 1);
+        console.log('[Preload] Unregistered update listener');
+      }
     };
-    ipcRenderer.on('update-available', listener);
-    return () => ipcRenderer.removeListener('update-available', listener);
-  },
-  onDownloadProgress: (callback) => {
-    const listener = (_event, progress) => {
-      console.log('[Preload] download-progress received:', progress);
-      if (progress) callback(progress);
-    };
-    ipcRenderer.on('download-progress', listener);
-    return () => ipcRenderer.removeListener('download-progress', listener);
-  },
-  onUpdateDownloaded: (callback) => {
-    const listener = (_event, info) => {
-      console.log('[Preload] update-downloaded received:', info);
-      if (info) callback(info);
-    };
-    ipcRenderer.on('update-downloaded', listener);
-    return () => ipcRenderer.removeListener('update-downloaded', listener);
   },
   installUpdate: () => ipcRenderer.send('install-update'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
 
   // Manual Update Manager (NEW - for DevPanel)
   downloadUpdate: (params) => ipcRenderer.invoke('download-update', params),
