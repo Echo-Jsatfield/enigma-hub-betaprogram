@@ -1,6 +1,7 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import api from "../services/api";
+import { io } from "socket.io-client";
 
 const AuthContext = createContext();
 
@@ -32,23 +33,94 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   
-  // 🔥 CRITICAL FIX: Prevent multiple simultaneous auth checks
   const isCheckingAuth = useRef(false);
   const lastAuthCheck = useRef(0);
-  const AUTH_CHECK_COOLDOWN = 5000; // 5 seconds between checks
+  const AUTH_CHECK_COOLDOWN = 5000;
 
   useEffect(() => {
     checkAuth();
   }, []);
 
+  // WebSocket with reconnection limits - FIXED
+  useEffect(() => {
+    let socket;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    
+    if (user && user.id) {
+      const wsUrl = import.meta.env.VITE_WS_URL;
+      
+      // Check if WS URL is configured
+      if (!wsUrl) {
+        console.warn("⚠️ VITE_WS_URL not configured, skipping WebSocket connection");
+        return;
+      }
+
+      socket = io(wsUrl, {
+        auth: {
+          token: localStorage.getItem("token"),
+        },
+        reconnection: true,
+        reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 10000,
+      });
+
+      socket.on("connect", () => {
+        console.log("🔌 WebSocket connected for user:", user.username);
+        reconnectAttempts = 0; // Reset counter on success
+      });
+
+      socket.on("user:roles_updated", (data) => {
+        console.log("🔄 Received user:roles_updated event:", data);
+        if (data.userId === user.id) {
+          setUser((prevUser) => ({
+            ...prevUser,
+            roles: data.roles,
+          }));
+          console.log("✅ User roles updated in AuthContext.");
+        }
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.log("🔌 WebSocket disconnected:", reason);
+      });
+
+      socket.on("connect_error", (err) => {
+        reconnectAttempts++;
+        
+        // Only log first 3 attempts to reduce spam
+        if (reconnectAttempts <= 3) {
+          console.warn(`⚠️ WebSocket error (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}):`, err.message);
+        }
+        
+        // Stop trying after max attempts
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          console.error("❌ WebSocket failed after max attempts. Real-time updates disabled.");
+          socket.close();
+        }
+      });
+
+      socket.on("reconnect_failed", () => {
+        console.error("❌ WebSocket reconnection failed. Real-time updates disabled.");
+      });
+    }
+
+    return () => {
+      if (socket) {
+        console.log("🔌 Disconnecting WebSocket for cleanup.");
+        socket.disconnect();
+      }
+    };
+  }, [user]);
+
   const checkAuth = async () => {
-    // 🔥 Prevent concurrent checks
     if (isCheckingAuth.current) {
       console.log("⏭️ Auth check already in progress, skipping");
       return;
     }
 
-    // 🔥 Rate limit checks (5 second cooldown)
     const now = Date.now();
     if (now - lastAuthCheck.current < AUTH_CHECK_COOLDOWN) {
       console.log("⏭️ Auth check on cooldown, skipping");
@@ -78,12 +150,9 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("Auth check failed:", error);
       
-      // 🔥 Handle 429 specifically
       if (error.response?.status === 429) {
         console.warn("⚠️ Rate limited during auth check. Will retry on next login attempt.");
-        // Don't clear tokens on rate limit
       } else if (error.response?.status === 401) {
-        // Only clear on actual auth failure
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("sessionToken");
@@ -95,11 +164,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (username, password) => {
-          console.log('[AuthContext] Entering login function');
-          // 🔥 Prevent concurrent login attempts
-          if (isCheckingAuth.current) {
-            return { success: false, message: "Please wait..." };
-          }
+    console.log('[AuthContext] Entering login function');
+    
+    if (isCheckingAuth.current) {
+      return { success: false, message: "Please wait..." };
+    }
 
     try {
       setLoading(true);
@@ -109,8 +178,8 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post("/auth/login", { username, password });
       const { token, refreshToken, sessionToken, user: userData } = response.data;
 
-            console.log('[AuthContext] Login API call successful');
-            console.log('🔥 LOGIN RESPONSE:', response.data);
+      console.log('[AuthContext] Login API call successful');
+      console.log('🔥 LOGIN RESPONSE:', response.data);
       console.log('🔥 User data:', userData);
       console.log('🔥 User roles:', userData.roles);
 
@@ -121,16 +190,14 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
 
       notifyTelemetryLogin({
-              ...userData,
-              token: sessionToken,
-            });
+        ...userData,
+        token: sessionToken,
+      });
 
-      // Update last check time to prevent immediate re-check
       lastAuthCheck.current = Date.now();
 
       return { success: true };
     } catch (error) {
-      // 🔥 Handle 429 with helpful message
       if (error.response?.status === 429) {
         const errorMessage = "Too many login attempts. Please wait a moment and try again.";
         setError(errorMessage);
@@ -183,7 +250,6 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     notifyTelemetryLogout();
     
-    // Reset auth check refs
     isCheckingAuth.current = false;
     lastAuthCheck.current = 0;
   };

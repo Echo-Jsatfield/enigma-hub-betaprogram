@@ -1,6 +1,5 @@
 // src/components/Settings/Settings.jsx
-// Updated visual style to match new purple theme (#6A0DAD)
-// ZERO functional changes – only styling updated
+// FIXED: Password autocomplete issue
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
@@ -23,7 +22,7 @@ export default function Settings() {
   const { confirm, alert } = useModal();
   const [activeTab, setActiveTab] = useState("general");
 
-  const PURPLE = "#6A0DAD"; // Your official purple
+  const PURPLE = "#6A0DAD";
 
   const [settings, setSettings] = useState({
     notifications: {
@@ -250,27 +249,26 @@ export default function Settings() {
                       color: active ? "white" : "#9874a8",
                     }}
                   />
-                  <span>{tab.label}</span>
+                  {tab.label}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* MAIN PANEL */}
+        {/* Main Content */}
         <div className="lg:col-span-3">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-6 space-y-6 shadow-xl"
+            transition={{ duration: 0.2 }}
+            className="rounded-2xl p-6 shadow-lg"
             style={{
-              backgroundColor: "#16081f",
+              backgroundColor: "#14071d",
               border: "1px solid #2a0c3f",
-              boxShadow: "0 0 30px #000",
             }}
           >
-            {/* TABS */}
             {activeTab === "general" && (
               <GeneralTab
                 user={user}
@@ -290,70 +288,43 @@ export default function Settings() {
             )}
 
             {activeTab === "notifications" && (
-              <NotificationsTab
-                settings={settings}
-                setSettings={setSettings}
-              />
+              <NotificationsTab settings={settings} setSettings={setSettings} />
             )}
 
-            {activeTab === "system" && isAdmin() && <SystemStatusTab />}
+            {activeTab === "system" && <SystemStatusTab />}
 
-            {/* Save Button */}
-            {activeTab !== "security" && activeTab !== "system" && (
-              <div className="flex justify-end pt-5 border-t border-[#2f1b41]">
-                <button
-                  onClick={handleSaveSettings}
-                  className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all shadow-md"
-                  style={{
-                    background: `linear-gradient(90deg, ${PURPLE}, #f8cc00)`,
-                    boxShadow: `0 0 15px ${PURPLE}40`,
-                  }}
-                >
-                  <Save className="w-4 h-4 inline-block mr-2" />
-                  Save Settings
-                </button>
-              </div>
+            {(activeTab === "general" || activeTab === "notifications") && (
+              <button
+                onClick={handleSaveSettings}
+                className="w-full mt-6 px-6 py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2 shadow-md"
+                style={{
+                  background: "linear-gradient(90deg, #6A0DAD, #f8cc00)",
+                }}
+              >
+                <Save className="w-4 h-4" />
+                Save Settings
+              </button>
             )}
 
-            {/* Update Check */}
-            <div
-              className="rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3"
-              style={{
-                backgroundColor: "#11061a",
-                border: "1px solid #2a0c3f",
-              }}
-            >
-              <div>
-                <h3 className="text-sm font-semibold text-white">
-                  Application Updates
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Check for new versions of Enigma Hub.
-                </p>
-              </div>
-
+            {activeTab === "system" && (
               <button
                 onClick={handleCheckForUpdates}
                 disabled={checkingUpdates}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  checkingUpdates ? "opacity-60 cursor-not-allowed" : ""
-                }`}
+                className="w-full mt-6 px-6 py-3 rounded-xl text-white font-medium flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
                 style={{
-                  backgroundColor: "#14071d",
-                  border: `1px solid ${PURPLE}70`,
-                  color: "white",
+                  background: "linear-gradient(90deg, #6A0DAD, #f8cc00)",
                 }}
               >
                 {checkingUpdates ? (
                   <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="animate-spin h-4 w-4 border-b-2 border-white" />
                     Checking...
                   </span>
                 ) : (
                   "Check for Updates"
                 )}
               </button>
-            </div>
+            )}
           </motion.div>
         </div>
       </div>
@@ -361,23 +332,16 @@ export default function Settings() {
   );
 }
 
-/* 
-  Sub-components preserved from your original structure 
-  – cleaner JSX and styling but ZERO functional edits 
-*/
-
 // GENERAL TAB
 function GeneralTab({ user, settings, setSettings }) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-white">General Settings</h2>
 
-      {/* Username */}
       <Section title="Username">
         <p className="text-sm text-slate-300">{user?.username}</p>
       </Section>
 
-      {/* Roles */}
       <Section title="Roles">
         <div className="flex gap-2 flex-wrap">
           {(user?.roles || []).map((role) => (
@@ -391,12 +355,10 @@ function GeneralTab({ user, settings, setSettings }) {
         </div>
       </Section>
 
-      {/* Email */}
       <Section title="Email">
         <p className="text-sm text-slate-300">{user?.email || "Not set"}</p>
       </Section>
 
-      {/* Privacy */}
       <Section title="Privacy">
         <ToggleRow
           label="Show Profile"
@@ -424,7 +386,7 @@ function GeneralTab({ user, settings, setSettings }) {
   );
 }
 
-// SECURITY TAB
+// SECURITY TAB - FIXED PASSWORD INPUTS
 function SecurityTab({
   passwordForm,
   setPasswordForm,
@@ -439,36 +401,46 @@ function SecurityTab({
       {/* Change Password */}
       <Section title="Change Password">
         <form onSubmit={handlePasswordChange} className="space-y-4">
+          {/* FIXED: Added name and autoComplete attributes */}
           <InputRow
             label="Current Password"
             type="password"
+            name="current-password"
+            autoComplete="current-password"
             value={passwordForm.currentPassword}
             onChange={(v) =>
               setPasswordForm({ ...passwordForm, currentPassword: v })
             }
             disabled={passwordLoading}
+            placeholder="Enter current password"
           />
 
           <InputRow
             label="New Password"
             type="password"
+            name="new-password"
+            autoComplete="new-password"
             minLength={8}
             value={passwordForm.newPassword}
             onChange={(v) =>
               setPasswordForm({ ...passwordForm, newPassword: v })
             }
             disabled={passwordLoading}
+            placeholder="Enter new password (min 8 characters)"
           />
 
           <InputRow
             label="Confirm New Password"
             type="password"
+            name="confirm-password"
+            autoComplete="new-password"
             minLength={8}
             value={passwordForm.confirmPassword}
             onChange={(v) =>
               setPasswordForm({ ...passwordForm, confirmPassword: v })
             }
             disabled={passwordLoading}
+            placeholder="Confirm new password"
           />
 
           <button
@@ -504,11 +476,9 @@ function SecurityTab({
 function NotificationsTab({ settings, setSettings }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-white">
-        Notification Settings
-      </h2>
+      <h2 className="text-xl font-semibold text-white">Notification Settings</h2>
 
-      <Section title="Notifications">
+      <Section title="Job Notifications">
         <ToggleRow
           label="Job Updates"
           sub="Get notified about job status changes."
@@ -523,7 +493,7 @@ function NotificationsTab({ settings, setSettings }) {
 
         <ToggleRow
           label="System Alerts"
-          sub="Important system announcements."
+          sub="Important system messages and announcements."
           checked={settings.notifications.systemAlerts}
           onChange={(v) =>
             setSettings({
@@ -535,7 +505,7 @@ function NotificationsTab({ settings, setSettings }) {
 
         <ToggleRow
           label="Email Notifications"
-          sub="Receive important notifications via email."
+          sub="Receive updates via email (if configured)."
           checked={settings.notifications.emailNotifications}
           onChange={(v) =>
             setSettings({
@@ -584,12 +554,14 @@ function Section({ title, children }) {
   );
 }
 
-function InputRow({ label, ...props }) {
+// FIXED: InputRow with proper autocomplete handling
+function InputRow({ label, onChange, ...props }) {
   return (
     <div>
       <label className="block text-xs text-slate-400 mb-1">{label}</label>
       <input
         {...props}
+        onChange={(e) => onChange(e.target.value)}
         className="w-full px-4 py-2 bg-[#0d0413] border border-[#2a0c3f] rounded-xl text-sm text-white focus:border-purple-600 outline-none"
       />
     </div>

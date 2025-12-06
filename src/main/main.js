@@ -663,16 +663,28 @@ function createWindow() {
       socket.disconnect();
       console.log('[Socket.IO] Disconnected socket due to window close');
     }
-    // Removed stopTelemetryServer() from here
-    mainWindow = null;
-    if (logStream) {
-      logStream.end();
-      logStream = null;
+  });
+
+  app.on('window-all-closed', () => {
+    console.log('[App] All windows closed. Quitting application.');
+    if (process.platform !== 'darwin') {
+      app.quit();
     }
   });
 
   console.log('[Window] ✅ Main window created');
 }
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+  mainWindow = null;
+  if (logStream) {
+    logStream.end();
+    logStream = null;
+  }
+});
 
 // ============================================
 // IPC HANDLERS - WINDOW CONTROLS
@@ -1375,13 +1387,21 @@ app.on('window-all-closed', () => {
 });
 
 // Cleanup on app quit
-app.on('before-quit', () => {
+import { stopTelemetryServer } from './telemetry-server.js';
+
+app.on('before-quit', async () => {
   console.log('[App] Cleaning up before quit...');
 
   // Disconnect socket
   if (socket && socket.connected) {
     socket.disconnect();
   }
+
+  // Stop local telemetry server if running
+  stopTelemetryServer();
+
+  // Ensure telemetry port is free
+  await killProcessOnPort(25555);
 
   // Close all windows properly
   const windows = BrowserWindow.getAllWindows();
