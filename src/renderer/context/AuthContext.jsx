@@ -7,12 +7,11 @@ const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
 
+// Telemetry helpers
 const notifyTelemetryLogin = (userData) => {
   if (window.electronAPI?.telemetryUserLogin) {
     window.electronAPI.telemetryUserLogin(userData);
@@ -32,34 +31,37 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [authMode, setAuthMode] = useState("login");
-  
+
   const isCheckingAuth = useRef(false);
   const lastAuthCheck = useRef(0);
   const AUTH_CHECK_COOLDOWN = 5000;
+
+  // NEW — store permissions + tier
+  const [permissions, setPermissions] = useState([]);
+  const [tier, setTier] = useState("TIER_0");
 
   useEffect(() => {
     checkAuth();
   }, []);
 
-  // WebSocket with reconnection limits - FIXED
+  // ============================
+  // WebSocket (unchanged)
+  // ============================
   useEffect(() => {
     let socket;
     let reconnectAttempts = 0;
     const MAX_RECONNECT_ATTEMPTS = 5;
-    
+
     if (user && user.id) {
       const wsUrl = import.meta.env.VITE_WS_URL;
-      
-      // Check if WS URL is configured
+
       if (!wsUrl) {
-        console.warn("⚠️ VITE_WS_URL not configured, skipping WebSocket connection");
+        console.warn("⚠️ VITE_WS_URL not configured, skipping WebSocket");
         return;
       }
 
       socket = io(wsUrl, {
-        auth: {
-          token: localStorage.getItem("token"),
-        },
+        auth: { token: localStorage.getItem("token") },
         reconnection: true,
         reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
         reconnectionDelay: 1000,
@@ -69,17 +71,13 @@ export const AuthProvider = ({ children }) => {
 
       socket.on("connect", () => {
         console.log("🔌 WebSocket connected for user:", user.username);
-        reconnectAttempts = 0; // Reset counter on success
+        reconnectAttempts = 0;
       });
 
-      socket.on("user:roles_updated", (data) => {
-        console.log("🔄 Received user:roles_updated event:", data);
+      socket.on("user:roles_updated", async (data) => {
+        console.log("🔄 user:roles_updated:", data);
         if (data.userId === user.id) {
-          setUser((prevUser) => ({
-            ...prevUser,
-            roles: data.roles,
-          }));
-          console.log("✅ User roles updated in AuthContext.");
+          await reloadPermissions();
         }
       });
 
@@ -89,41 +87,52 @@ export const AuthProvider = ({ children }) => {
 
       socket.on("connect_error", (err) => {
         reconnectAttempts++;
-        
-        // Only log first 3 attempts to reduce spam
-        if (reconnectAttempts <= 3) {
-          console.warn(`⚠️ WebSocket error (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}):`, err.message);
-        }
-        
-        // Stop trying after max attempts
+        if (reconnectAttempts <= 3)
+          console.warn(`⚠️ WebSocket error (${reconnectAttempts}/5):`, err.message);
+
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.error("❌ WebSocket failed after max attempts. Real-time updates disabled.");
+          console.error("❌ WebSocket failed after max attempts.");
           socket.close();
         }
       });
 
       socket.on("reconnect_failed", () => {
-        console.error("❌ WebSocket reconnection failed. Real-time updates disabled.");
+        console.error("❌ WebSocket reconnection failed. Disabled.");
       });
     }
 
     return () => {
       if (socket) {
-        console.log("🔌 Disconnecting WebSocket for cleanup.");
+        console.log("🔌 Cleaning up WebSocket.");
         socket.disconnect();
       }
     };
   }, [user]);
 
-  const checkAuth = async () => {
-    if (isCheckingAuth.current) {
-      console.log("⏭️ Auth check already in progress, skipping");
-      return;
+  // ============================================
+  // NEW PERMISSION SYSTEM — FETCH PERMISSIONS
+  // ============================================
+  const reloadPermissions = async () => {
+    try {
+      const res = await api.get("/roles/me/permissions");
+      setPermissions(res.data.permissions || []);
+      setTier(res.data.tier || "TIER_0");
+      console.log("🔐 Permissions synced:", res.data);
+    } catch (err) {
+      console.warn("⚠️ Failed to load permissions:", err);
+      setPermissions([]);
+      setTier("TIER_0");
     }
+  };
+
+  // ============================================
+  // CHECK AUTH
+  // ============================================
+  const checkAuth = async () => {
+    if (isCheckingAuth.current) return console.log("⏭️ Auth check already running");
 
     const now = Date.now();
     if (now - lastAuthCheck.current < AUTH_CHECK_COOLDOWN) {
-      console.log("⏭️ Auth check on cooldown, skipping");
       setLoading(false);
       return;
     }
@@ -146,13 +155,14 @@ export const AuthProvider = ({ children }) => {
           ...profile,
           token: sessionToken || token,
         });
+
+        // LOAD PERMISSIONS HERE
+        await reloadPermissions();
       }
     } catch (error) {
       console.error("Auth check failed:", error);
-      
-      if (error.response?.status === 429) {
-        console.warn("⚠️ Rate limited during auth check. Will retry on next login attempt.");
-      } else if (error.response?.status === 401) {
+
+      if (error.response?.status === 401) {
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("sessionToken");
@@ -163,12 +173,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ============================================
+  // LOGIN
+  // ============================================
   const login = async (username, password) => {
-    console.log('[AuthContext] Entering login function');
-    
-    if (isCheckingAuth.current) {
-      return { success: false, message: "Please wait..." };
-    }
+    if (isCheckingAuth.current) return { success: false, message: "Please wait..." };
 
     try {
       setLoading(true);
@@ -178,35 +187,23 @@ export const AuthProvider = ({ children }) => {
       const response = await api.post("/auth/login", { username, password });
       const { token, refreshToken, sessionToken, user: userData } = response.data;
 
-      console.log('[AuthContext] Login API call successful');
-      console.log('🔥 LOGIN RESPONSE:', response.data);
-      console.log('🔥 User data:', userData);
-      console.log('🔥 User roles:', userData.roles);
-
       localStorage.setItem("token", token);
       localStorage.setItem("refreshToken", refreshToken);
       localStorage.setItem("sessionToken", sessionToken);
 
       setUser(userData);
-
-      notifyTelemetryLogin({
-        ...userData,
-        token: sessionToken,
-      });
+      notifyTelemetryLogin({ ...userData, token: sessionToken });
 
       lastAuthCheck.current = Date.now();
 
+      // LOAD PERMISSIONS
+      await reloadPermissions();
+
       return { success: true };
     } catch (error) {
-      if (error.response?.status === 429) {
-        const errorMessage = "Too many login attempts. Please wait a moment and try again.";
-        setError(errorMessage);
-        return { success: false, message: errorMessage };
-      }
-      
-      const errorMessage = error.response?.data?.error || "Login failed";
-      setError(errorMessage);
-      return { success: false, message: errorMessage };
+      const msg = error.response?.data?.error || "Login failed";
+      setError(msg);
+      return { success: false, message: msg };
     } finally {
       setLoading(false);
       isCheckingAuth.current = false;
@@ -230,13 +227,9 @@ export const AuthProvider = ({ children }) => {
         requiresApproval: response.data.requiresApproval || true,
       };
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.message || "Registration failed";
-      setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
+      const msg = error.response?.data?.message || "Registration failed";
+      setError(msg);
+      return { success: false, error: msg };
     } finally {
       setLoading(false);
     }
@@ -247,52 +240,57 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("sessionToken");
     setUser(null);
+    setPermissions([]);
+    setTier("TIER_0");
     setError(null);
+
     notifyTelemetryLogout();
-    
+
     isCheckingAuth.current = false;
     lastAuthCheck.current = 0;
   };
 
-  const updateUser = (userData) => {
-    setUser(userData);
-  };
+  const updateUser = (userData) => setUser(userData);
 
-  const hasRole = (role) => {
-    if (!user || !user.roles) return false;
-    return user.roles.includes(role);
-  };
-
-  const hasAnyRole = (roles) => {
-    if (!user || !user.roles) return false;
-    return user.roles.some((role) => roles.includes(role));
-  };
-
-  const hasAllRoles = (roles) => {
-    if (!user || !user.roles) return false;
-    return roles.every((role) => user.roles.includes(role));
-  };
+  // ============================================
+  // ORIGINAL ROLE HELPERS (kept for compatibility)
+  // ============================================
+  const hasRole = (role) => user?.roles?.includes(role);
+  const hasAnyRole = (roles) => roles.some((r) => user?.roles?.includes(r));
+  const hasAllRoles = (roles) => roles.every((r) => user?.roles?.includes(r));
 
   const isAdmin = () => hasRole("admin");
   const isStaff = () => hasAnyRole(["admin", "staff"]);
   const isDriver = () => hasRole("driver");
 
-  const getRolesString = () => {
-    if (!user || !user.roles) {
-      return "No Role";
-    }
-    
-    const rolesArray = Array.isArray(user.roles) ? user.roles : [user.roles];
-    
-    if (rolesArray.length === 0) {
-      return "No Role";
-    }
-    
-    return rolesArray
-      .map((role) => String(role).charAt(0).toUpperCase() + String(role).slice(1))
-      .join(", ");
+  // ============================================
+  // NEW PERMISSION HELPERS
+  // ============================================
+  const hasPermission = (perm) => {
+    if (!permissions) return false;
+    if (permissions.includes("*")) return true;
+    return permissions.includes(perm);
   };
 
+  const hasAnyPermission = (perms) =>
+    permissions.includes("*") || perms.some((p) => permissions.includes(p));
+
+  const hasAllPermissions = (perms) =>
+    permissions.includes("*") || perms.every((p) => permissions.includes(p));
+
+  const hasTier = (min) => {
+    const num = parseInt(tier.replace("TIER_", ""));
+    return num >= min;
+  };
+
+  const getRolesString = () => {
+    if (!user?.roles?.length) return "No Role";
+    return user.roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ");
+  };
+
+  // ============================================
+  // FINAL CONTEXT VALUE
+  // ============================================
   const value = {
     user,
     loading,
@@ -305,6 +303,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateUser,
     checkAuth,
+
+    // ORIGINAL ROLE HELPERS
     hasRole,
     hasAnyRole,
     hasAllRoles,
@@ -312,6 +312,15 @@ export const AuthProvider = ({ children }) => {
     isStaff,
     isDriver,
     getRolesString,
+
+    // NEW PERMISSION SYSTEM
+    permissions,
+    tier,
+    reloadPermissions,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    hasTier,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
