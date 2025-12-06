@@ -593,6 +593,18 @@ function createWindow() {
     console.log('[Window] ✅ Renderer ready for IPC');
     mainWindow.show();
 
+    // ✅ FIX: Auto-check for updates on startup (electron-updater)
+    if (!isDev) {
+      setTimeout(() => {
+        console.log('[AutoUpdater] 🔍 Starting automatic update check...');
+        autoUpdater.checkForUpdates().catch((err) => {
+          console.error('[AutoUpdater] ❌ Update check failed:', err.message);
+        });
+      }, 5000); // Wait 5 seconds after window shows to avoid UI lag
+    } else {
+      console.log('[AutoUpdater] ⏭️ Skipping update check (dev mode)');
+    }
+
     // Initialize Socket.IO client
     socket = io(API_URL, {
       transports: ['websocket'],

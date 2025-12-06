@@ -67,6 +67,20 @@ export default function UserManagement() {
   const [addDriverError, setAddDriverError] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
 
+  // Create User Directly Modal State
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [createUserForm, setCreateUserForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    discord_id: "",
+    steam_id: "",
+    roles: ["driver"],
+  });
+  const [createUserLoading, setCreateUserLoading] = useState(false);
+  const [createUserError, setCreateUserError] = useState("");
+
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,6 +269,89 @@ export default function UserManagement() {
     setCodeCopied(false);
   };
 
+  const handleCreateUser = async () => {
+    setCreateUserError("");
+
+    // Validation
+    if (!createUserForm.username || !createUserForm.password || !createUserForm.steam_id) {
+      setCreateUserError("Username, password, and Steam ID are required");
+      return;
+    }
+
+    if (createUserForm.password.length < 8) {
+      setCreateUserError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (createUserForm.password !== createUserForm.confirmPassword) {
+      setCreateUserError("Passwords do not match");
+      return;
+    }
+
+    if (createUserForm.roles.length === 0) {
+      setCreateUserError("Select at least one role");
+      return;
+    }
+
+    setCreateUserLoading(true);
+
+    try {
+      // Create user directly via admin endpoint
+      await api.post("/admin/users", {
+        username: createUserForm.username,
+        email: createUserForm.email,
+        password: createUserForm.password,
+        discord_id: createUserForm.discord_id,
+        steam_id: createUserForm.steam_id,
+        roles: createUserForm.roles,
+      });
+
+      // Log the action
+      await api.post("/admin/system-logs", {
+        action: "USER_CREATED_MANUALLY",
+        target_user: createUserForm.username,
+        meta: {
+          roles: createUserForm.roles,
+          email: createUserForm.email
+        }
+      });
+
+      // Close modal and refresh
+      closeCreateUserModal();
+      await fetchUsers();
+      alert(`User ${createUserForm.username} created successfully!`);
+    } catch (error) {
+      setCreateUserError(
+        error.response?.data?.error || "Failed to create user"
+      );
+    } finally {
+      setCreateUserLoading(false);
+    }
+  };
+
+  const closeCreateUserModal = () => {
+    setShowCreateUserModal(false);
+    setCreateUserForm({
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      discord_id: "",
+      steam_id: "",
+      roles: ["driver"],
+    });
+    setCreateUserError("");
+  };
+
+  const toggleRole = (role) => {
+    setCreateUserForm(prev => ({
+      ...prev,
+      roles: prev.roles.includes(role)
+        ? prev.roles.filter(r => r !== role)
+        : [...prev.roles, role]
+    }));
+  };
+
   const filteredUsers = users
     .filter(
       (user) =>
@@ -331,7 +428,15 @@ export default function UserManagement() {
             style={{ background: "linear-gradient(135deg, #6A0DAD, #f8cc00)" }}
           >
             <UserPlus className="w-4 h-4" />
-            Add Driver
+            Add Driver (Invite)
+          </button>
+          <button
+            onClick={() => setShowCreateUserModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm text-white shadow-lg transition-all hover:scale-105"
+            style={{ background: "linear-gradient(135deg, #0ea5e9, #06b6d4)" }}
+          >
+            <UserIcon className="w-4 h-4" />
+            Create User
           </button>
         </div>
       </div>
@@ -407,6 +512,12 @@ export default function UserManagement() {
                 <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
                   Email
                 </th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Steam ID
+                </th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Discord ID
+                </th>
                 <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
                   Roles
                 </th>
@@ -464,6 +575,24 @@ export default function UserManagement() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-slate-200 text-sm">
                       {user.email || "—"}
+                    </div>
+                  </td>
+
+                  {/* STEAM ID */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-slate-300 text-xs font-mono">
+                      {user.steam_id || (
+                        <span className="text-slate-500 italic">Not linked</span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* DISCORD ID */}
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-slate-300 text-xs font-mono">
+                      {user.discord_id || (
+                        <span className="text-slate-500 italic">Not linked</span>
+                      )}
                     </div>
                   </td>
 
@@ -869,6 +998,199 @@ export default function UserManagement() {
                   </div>
                 </>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CREATE USER DIRECTLY MODAL */}
+      <AnimatePresence>
+        {showCreateUserModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={closeCreateUserModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#18122b] rounded-2xl p-6 w-full max-w-md border border-[#2d1b5c] shadow-2xl shadow-black/80"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <UserIcon className="w-6 h-6 text-sky-400" />
+                  <h2 className="text-xl font-semibold text-slate-50">
+                    Create User Directly
+                  </h2>
+                </div>
+                <button
+                  onClick={closeCreateUserModal}
+                  className="p-2 rounded-lg hover:bg-[#2d1b5c]/70 transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-sky-900/20 border border-sky-700 rounded-lg mb-4">
+                <Shield className="w-5 h-5 text-sky-300 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-sky-200 mb-1">
+                    Admin Manual User Creation
+                  </p>
+                  <p className="text-xs text-sky-200/90">
+                    Create user with credentials directly (auto-approved). Steam ID required to link driver to trucking system.
+                  </p>
+                </div>
+              </div>
+
+              {createUserError && (
+                <div className="p-3 bg-red-900/20 border border-red-800 rounded-lg mb-4">
+                  <p className="text-xs text-red-200">{createUserError}</p>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Username <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserForm.username}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, username: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="username"
+                    disabled={createUserLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Email (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={createUserForm.email}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, email: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="user@example.com"
+                    disabled={createUserLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Discord ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserForm.discord_id}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, discord_id: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="123456789012345678"
+                    disabled={createUserLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Steam ID <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={createUserForm.steam_id}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, steam_id: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="76561198XXXXXXXXX"
+                    disabled={createUserLoading}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Required to link driver to trucking system</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Password <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={createUserForm.password}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, password: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="Min. 8 characters"
+                    disabled={createUserLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Confirm Password <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={createUserForm.confirmPassword}
+                    onChange={(e) =>
+                      setCreateUserForm({ ...createUserForm, confirmPassword: e.target.value })
+                    }
+                    className="w-full px-4 py-2 bg-[#12051a] border border-[#2c1e3a] rounded-lg text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="Re-enter password"
+                    disabled={createUserLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-200 mb-2">
+                    Roles <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_ROLES.map(role => (
+                      <button
+                        key={role.value}
+                        onClick={() => toggleRole(role.value)}
+                        disabled={createUserLoading}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          createUserForm.roles.includes(role.value)
+                            ? ROLE_BADGE_CLASSES[role.value] + ' scale-105'
+                            : 'bg-[#12051a] border-[#2c1e3a] text-slate-400 hover:border-slate-600'
+                        }`}
+                      >
+                        {role.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-3">
+                  <button
+                    onClick={handleCreateUser}
+                    disabled={createUserLoading}
+                    className="flex-1 px-4 py-2.5 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors font-semibold shadow-md shadow-black/70"
+                    style={{ background: "linear-gradient(135deg, #0ea5e9, #06b6d4)" }}
+                  >
+                    {createUserLoading ? "Creating..." : "Create User"}
+                  </button>
+                  <button
+                    onClick={closeCreateUserModal}
+                    disabled={createUserLoading}
+                    className="flex-1 px-4 py-2.5 bg-[#2d1b5c] hover:bg-[#3a2370] text-slate-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

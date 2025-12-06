@@ -1,6 +1,6 @@
 {
   "name": "enigma-hub-frontend",
-  "version": "1.0.14",
+  "version": "1.0.13",
   "description": "Enigma Hub Frontend (Electron + Vite App)",
   "author": "Echo Jsatfield",
   "main": "src/main/main.js",
@@ -10,6 +10,7 @@
     "dev": "concurrently -k -n \"VITE,ELECTRON\" -c \"cyan,green\" \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "build": "vite build",
     "start": "cross-env NODE_ENV=production electron .",
+    "build:win": "npm run build && electron-builder --win",
     "build:app": "npm run build && electron-builder --dir",
     "package": "npm run build && electron-builder",
     "publish": "npm run build && electron-builder --publish always",
