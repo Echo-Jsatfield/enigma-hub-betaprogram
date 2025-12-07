@@ -1,7 +1,7 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import api from "../services/api";
 import { io } from "socket.io-client";
+import { writeAuthToken } from "../../utils/saveToken";
 
 const AuthContext = createContext();
 
@@ -15,14 +15,14 @@ export const useAuth = () => {
 const notifyTelemetryLogin = (userData) => {
   if (window.electronAPI?.telemetryUserLogin) {
     window.electronAPI.telemetryUserLogin(userData);
-    console.log("✅ Telemetry notified of login:", userData.username);
+    console.log("Telemetry notified of login:", userData.username);
   }
 };
 
 const notifyTelemetryLogout = () => {
   if (window.electronAPI?.telemetryUserLogout) {
     window.electronAPI.telemetryUserLogout();
-    console.log("✅ Telemetry notified of logout");
+    console.log("Telemetry notified of logout");
   }
 };
 
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
   const lastAuthCheck = useRef(0);
   const AUTH_CHECK_COOLDOWN = 5000;
 
-  // NEW — store permissions + tier
+  // Store permissions + tier
   const [permissions, setPermissions] = useState([]);
   const [tier, setTier] = useState("TIER_0");
 
@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ============================
-  // WebSocket (unchanged)
+  // WebSocket
   // ============================
   useEffect(() => {
     let socket;
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
       const wsUrl = import.meta.env.VITE_WS_URL;
 
       if (!wsUrl) {
-        console.warn("⚠️ VITE_WS_URL not configured, skipping WebSocket");
+        console.warn("VITE_WS_URL not configured, skipping WebSocket");
         return;
       }
 
@@ -70,56 +70,67 @@ export const AuthProvider = ({ children }) => {
       });
 
       socket.on("connect", () => {
-        console.log("🔌 WebSocket connected for user:", user.username);
+        console.log("WebSocket connected for user:", user.username);
         reconnectAttempts = 0;
       });
 
       socket.on("user:roles_updated", async (data) => {
-        console.log("🔄 user:roles_updated:", data);
+        console.log("user:roles_updated:", data);
         if (data.userId === user.id) {
           await reloadPermissions();
+          await refreshUserProfile();
         }
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("🔌 WebSocket disconnected:", reason);
+        console.log("WebSocket disconnected:", reason);
       });
 
       socket.on("connect_error", (err) => {
         reconnectAttempts++;
         if (reconnectAttempts <= 3)
-          console.warn(`⚠️ WebSocket error (${reconnectAttempts}/5):`, err.message);
+          console.warn(`WebSocket error (${reconnectAttempts}/5):`, err.message);
 
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.error("❌ WebSocket failed after max attempts.");
+          console.error("WebSocket failed after max attempts.");
           socket.close();
         }
       });
 
       socket.on("reconnect_failed", () => {
-        console.error("❌ WebSocket reconnection failed. Disabled.");
+        console.error("WebSocket reconnection failed. Disabled.");
       });
     }
 
     return () => {
       if (socket) {
-        console.log("🔌 Cleaning up WebSocket.");
+        console.log("Cleaning up WebSocket.");
         socket.disconnect();
       }
     };
   }, [user]);
 
   // ============================================
-  // NEW PERMISSION SYSTEM — FETCH PERMISSIONS
+  // PROFILE + PERMISSIONS
   // ============================================
+  const refreshUserProfile = async () => {
+    try {
+      const res = await api.get("/auth/profile");
+      setUser(res.data);
+    } catch (err) {
+      console.warn("Failed to refresh profile:", err);
+    }
+  };
+
   const reloadPermissions = async () => {
     try {
       const res = await api.get("/roles/me/permissions");
       setPermissions(res.data.permissions || []);
       setTier(res.data.tier || "TIER_0");
-      console.log("🔐 Permissions synced:", res.data);
+      console.log("Permissions synced:", res.data);
+      await refreshUserProfile();
     } catch (err) {
-      console.warn("⚠️ Failed to load permissions:", err);
+      console.warn("Failed to load permissions:", err);
       setPermissions([]);
       setTier("TIER_0");
     }
@@ -129,7 +140,7 @@ export const AuthProvider = ({ children }) => {
   // CHECK AUTH
   // ============================================
   const checkAuth = async () => {
-    if (isCheckingAuth.current) return console.log("⏭️ Auth check already running");
+    if (isCheckingAuth.current) return console.log("Auth check already running");
 
     const now = Date.now();
     if (now - lastAuthCheck.current < AUTH_CHECK_COOLDOWN) {
@@ -156,7 +167,6 @@ export const AuthProvider = ({ children }) => {
           token: sessionToken || token,
         });
 
-        // LOAD PERMISSIONS HERE
         await reloadPermissions();
       }
     } catch (error) {
@@ -194,9 +204,19 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       notifyTelemetryLogin({ ...userData, token: sessionToken });
 
+      // Persist auth token for the telemetry DLL (only in Electron context)
+      try {
+        if (window?.process?.versions?.electron) {
+          await writeAuthToken(sessionToken || token, userData);
+        } else {
+          console.warn("Skipping telemetry token file write (non-Electron context)");
+        }
+      } catch (err) {
+        console.warn("Failed to write telemetry auth token file:", err.message);
+      }
+
       lastAuthCheck.current = Date.now();
 
-      // LOAD PERMISSIONS
       await reloadPermissions();
 
       return { success: true };
@@ -253,7 +273,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = (userData) => setUser(userData);
 
   // ============================================
-  // ORIGINAL ROLE HELPERS (kept for compatibility)
+  // ROLE HELPERS
   // ============================================
   const hasRole = (role) => user?.roles?.includes(role);
   const hasAnyRole = (roles) => roles.some((r) => user?.roles?.includes(r));
@@ -264,7 +284,7 @@ export const AuthProvider = ({ children }) => {
   const isDriver = () => hasRole("driver");
 
   // ============================================
-  // NEW PERMISSION HELPERS
+  // PERMISSION HELPERS
   // ============================================
   const hasPermission = (perm) => {
     if (!permissions) return false;
@@ -304,7 +324,7 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     checkAuth,
 
-    // ORIGINAL ROLE HELPERS
+    // Roles
     hasRole,
     hasAnyRole,
     hasAllRoles,
@@ -313,7 +333,7 @@ export const AuthProvider = ({ children }) => {
     isDriver,
     getRolesString,
 
-    // NEW PERMISSION SYSTEM
+    // Permissions
     permissions,
     tier,
     reloadPermissions,
