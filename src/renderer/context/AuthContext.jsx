@@ -204,10 +204,15 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       notifyTelemetryLogin({ ...userData, token: sessionToken });
 
-      // Persist auth token for the telemetry DLL (only in Electron context)
+      // Persist auth token for the telemetry DLL (Electron IPC preferred)
       try {
-        if (window?.process?.versions?.electron) {
-          await writeAuthToken(sessionToken || token, userData);
+        const finalToken = sessionToken || token;
+        if (window?.electronAPI?.saveToken) {
+          window.electronAPI.saveToken(finalToken);
+          console.log("Telemetry token saved via IPC");
+        } else if (window?.process?.versions?.electron) {
+          // Legacy fallback
+          await writeAuthToken(finalToken, userData);
         } else {
           console.warn("Skipping telemetry token file write (non-Electron context)");
         }

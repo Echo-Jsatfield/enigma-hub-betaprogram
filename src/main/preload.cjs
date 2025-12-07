@@ -80,6 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log('[Preload] sendAuthToken called with token:', token ? '[token received]' : '[no token]');
     ipcRenderer.send('auth-token', token);
   },
+  saveToken: (token) => ipcRenderer.send('save-token', token),
 
   // Job Events
   onJobDeleted: (callback) => {

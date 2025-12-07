@@ -762,6 +762,26 @@ ipcMain.on('auth-token', (event, token) => {
   }
 });
 
+// Persist telemetry token to Documents/EnigmaHub/auth_token.txt
+ipcMain.on('save-token', (_event, token) => {
+  try {
+    if (!token) {
+      console.warn('[AUTH] No token provided to save-token');
+      return;
+    }
+    const docs = app.getPath('documents');
+    const dir = join(docs, 'EnigmaHub');
+    const file = join(dir, 'auth_token.txt');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(file, token, 'utf-8');
+    console.log('[AUTH] Token saved to', file);
+  } catch (err) {
+    console.error('[AUTH] Failed to save token:', err.message);
+  }
+});
+
 // ============================================
 // IPC HANDLERS - CUSTOM UPDATER
 // ============================================
