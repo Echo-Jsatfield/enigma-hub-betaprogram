@@ -1,5 +1,5 @@
 // src/components/Admin/UserManagement.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -19,14 +19,15 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import RoleSelector from '../Common/RoleSelector';
-import { RoleBadges } from '../Common/RoleBadge';
 import { usePermissions } from '../hooks/usePermissions';
+import { useRoleDefinitions } from '../../hooks/useRoleDefinitions';
 
 export default function UserManagement() {
   const { hasPermission, hasAnyPermission } = usePermissions();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [approvalFilter, setApprovalFilter] = useState("all");
   const [suspendedFilter, setSuspendedFilter] = useState("all");
@@ -55,6 +56,8 @@ export default function UserManagement() {
   const [addDriverLoading, setAddDriverLoading] = useState(false);
   const [addDriverError, setAddDriverError] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedUserId, setAdvancedUserId] = useState(null);
 
   // Create User Directly Modal State
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -69,10 +72,95 @@ export default function UserManagement() {
   });
   const [createUserLoading, setCreateUserLoading] = useState(false);
   const [createUserError, setCreateUserError] = useState("");
+  const { roles: roleDefs } = useRoleDefinitions();
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Debounce search input to avoid spam filtering
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 200);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Unified role styling to match profile badges
+  const roleStyles = useMemo(
+    () => ({
+      owner: {
+        bg: "bg-red-500/25",
+        border: "border-red-400/60",
+        text: "text-white",
+      },
+      "board member": {
+        bg: "bg-red-500/25",
+        border: "border-red-300/60",
+        text: "text-white",
+      },
+      admin: {
+        bg: "bg-amber-500/25",
+        border: "border-amber-300/60",
+        text: "text-white",
+      },
+      driver: {
+        bg: "bg-purple-500/25",
+        border: "border-purple-200/70",
+        text: "text-white",
+      },
+      moderator: {
+        bg: "bg-emerald-500/15",
+        border: "border-emerald-500/50",
+        text: "text-emerald-100",
+      },
+      default: {
+        bg: "bg-amber-500/15",
+        border: "border-amber-400/50",
+        text: "text-white",
+      },
+    }),
+    []
+  );
+
+  const renderRoles = (roles = []) => {
+    const list = roles.length ? roles : ["driver"];
+    const maxDisplay = 2;
+    const visible = list.slice(0, maxDisplay);
+    const remaining = list.length - visible.length;
+
+    return (
+      <div className="flex flex-wrap gap-1.5 items-center">
+        {visible.map((role) => {
+          const key = role.toLowerCase();
+          const style = roleStyles[key] || roleStyles.default;
+          const def = roleDefs.find((r) => (r.name || "").toLowerCase() === key);
+          const dynamicStyle = def?.color
+            ? {
+                backgroundColor: `${def.color}33`,
+                borderColor: `${def.color}66`,
+                color: "#fff",
+              }
+            : undefined;
+          return (
+            <span
+              key={role}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase ${style.bg} ${style.border} ${style.text} border`}
+              style={dynamicStyle}
+            >
+              {role}
+            </span>
+          );
+        })}
+        {remaining > 0 && (
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase bg-slate-700/40 border border-slate-500/60 text-slate-100"
+            title={list.slice(maxDisplay).join(", ")}
+          >
+            +{remaining} more
+          </span>
+        )}
+      </div>
+    );
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -251,10 +339,10 @@ export default function UserManagement() {
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (user.steam_id && user.steam_id.includes(searchTerm)) ||
-      (user.discord_id && user.discord_id.includes(searchTerm));
+      user.username.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+      (user.steam_id && user.steam_id.includes(debouncedSearch)) ||
+      (user.discord_id && user.discord_id.includes(debouncedSearch));
 
     const matchesRole = !roleFilter || user.roles?.includes(roleFilter);
 
@@ -277,6 +365,16 @@ export default function UserManagement() {
     pending: users.filter((u) => !u.approved).length,
     suspended: users.filter((u) => u.suspended).length,
   };
+
+  const currentEditingUser = useMemo(() => {
+    const found = users.find((u) => u.id === editingUser) || null;
+    // Track which user the advanced panel belongs to, so toggling applies per-user
+    if (found && advancedUserId !== found.id) {
+      setAdvancedUserId(found.id);
+      setShowAdvanced(false);
+    }
+    return found;
+  }, [editingUser, users, advancedUserId]);
 
   return (
     <div className="p-6 space-y-6 min-h-full bg-gradient-to-b from-[#12051a] to-[#1a0927]">
@@ -397,25 +495,25 @@ export default function UserManagement() {
           <table className="w-full">
             <thead>
               <tr style={{ backgroundColor: "#0d0413" }}>
-                <th className="px-6 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-5 py-3 text-left text-sm font-medium text-slate-300">
                   User
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-5 py-3 text-left text-sm font-medium text-slate-300">
                   Email
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-4 py-3 text-left text-sm font-medium text-slate-300">
                   Steam ID
                 </th>
-                <th className="px-4 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-4 py-3 text-left text-sm font-medium text-slate-300">
                   Discord ID
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-5 py-3 text-left text-sm font-medium text-slate-300">
                   Roles
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-5 py-3 text-left text-sm font-medium text-slate-300">
                   Status
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-slate-300">
+                <th className="px-5 py-3 text-left text-sm font-medium text-slate-300">
                   Actions
                 </th>
               </tr>
@@ -438,7 +536,7 @@ export default function UserManagement() {
                     style={{ borderColor: "#2a0c3f" }}
                   >
                     {/* USER */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         {user.avatar && user.avatar.trim() !== "" ? (
                           <img
@@ -480,37 +578,51 @@ export default function UserManagement() {
                     </td>
 
                     {/* EMAIL */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       <div className="text-slate-200 text-sm">
                         {user.email || "—"}
                       </div>
                     </td>
 
                     {/* STEAM ID */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-slate-300 text-xs font-mono">
-                        {user.steam_id || (
-                          <span className="text-slate-500 italic">Not linked</span>
-                        )}
-                      </div>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {user.steam_id ? (
+                        <span
+                          className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-emerald-900/30 text-emerald-200 border border-emerald-600/60"
+                          title={user.steam_id}
+                        >
+                          Linked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-slate-800/60 text-slate-200 border border-slate-600/60">
+                          Not linked
+                        </span>
+                      )}
                     </td>
 
                     {/* DISCORD ID */}
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-slate-300 text-xs font-mono">
-                        {user.discord_id || (
-                          <span className="text-slate-500 italic">Not linked</span>
-                        )}
-                      </div>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {user.discord_id ? (
+                        <span
+                          className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-indigo-900/30 text-indigo-200 border border-indigo-600/60"
+                          title={user.discord_id}
+                        >
+                          Linked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-[11px] font-semibold rounded-full bg-slate-800/60 text-slate-200 border border-slate-600/60">
+                          Not linked
+                        </span>
+                      )}
                     </td>
 
                     {/* ROLES */}
-                    <td className="px-6 py-4">
-                      <RoleBadges roles={user.roles} maxDisplay={2} size="sm" />
+                    <td className="px-5 py-3">
+                      {renderRoles(user.roles)}
                     </td>
 
                     {/* STATUS */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       <div className="flex flex-col gap-1">
                         <span
                           className={`inline-flex items-center px-2 py-1 text-[11px] font-medium rounded-full border ${
@@ -530,7 +642,7 @@ export default function UserManagement() {
                     </td>
 
                     {/* ACTIONS */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-5 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {hasAnyPermission(['users.edit.basic', 'users.edit.roles']) && (
                           <button
@@ -610,77 +722,172 @@ export default function UserManagement() {
                 </button>
               </div>
 
+              {/* Context summary */}
+              {currentEditingUser && (
+                <div className="mb-5 space-y-3">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-xs text-slate-400">ID: {currentEditingUser.id}</span>
+                    <span className="text-xs text-slate-400">
+                      Created:{" "}
+                      {currentEditingUser.created_at
+                        ? new Date(currentEditingUser.created_at).toLocaleDateString()
+                        : "Unknown"}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Last login:{" "}
+                      {currentEditingUser.last_login
+                        ? new Date(currentEditingUser.last_login).toLocaleString()
+                        : "Unknown"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {renderRoles(currentEditingUser.roles)}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        currentEditingUser.approved
+                          ? "bg-emerald-900/40 text-emerald-200 border-emerald-700/80"
+                          : "bg-amber-900/40 text-amber-200 border-amber-700/80"
+                      }`}
+                    >
+                      {currentEditingUser.approved ? "Approved" : "Pending"}
+                    </span>
+                    {currentEditingUser.suspended && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-red-900/40 text-red-200 border-red-700/80">
+                        Suspended
+                      </span>
+                    )}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        currentEditingUser.steam_id
+                          ? "bg-emerald-900/30 text-emerald-200 border-emerald-700/60"
+                          : "bg-slate-800/60 text-slate-200 border-slate-600/60"
+                      }`}
+                      title={currentEditingUser.steam_id || "Not linked"}
+                    >
+                      Steam {currentEditingUser.steam_id ? "Linked" : "Not linked"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        currentEditingUser.discord_id
+                          ? "bg-indigo-900/30 text-indigo-200 border-indigo-700/60"
+                          : "bg-slate-800/60 text-slate-200 border-slate-600/60"
+                      }`}
+                      title={currentEditingUser.discord_id || "Not linked"}
+                    >
+                      Discord {currentEditingUser.discord_id ? "Linked" : "Not linked"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
-                {/* Username */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.username}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, username: e.target.value })
-                    }
-                    className="w-full px-4 py-2 bg-[#0d0413] border border-[#2a0c3f] rounded-xl text-white focus:border-purple-600 outline-none"
-                  />
-                </div>
-
-                {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, email: e.target.value })
-                    }
-                    className="w-full px-4 py-2 bg-[#0d0413] border border-[#2a0c3f] rounded-xl text-white focus:border-purple-600 outline-none"
-                  />
-                </div>
-
-                {/* Roles */}
-                {hasPermission('users.edit.roles') && (
-                  <div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Username */}
+                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Roles
+                      Username
                     </label>
-                    <RoleSelector
-                      selectedRoles={editForm.roles}
-                      onChange={(newRoles) =>
-                        setEditForm({ ...editForm, roles: newRoles })
+                    <input
+                      type="text"
+                      value={editForm.username}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, username: e.target.value })
                       }
+                      className="w-full px-4 py-2 bg-[#0d0413] border border-[#2a0c3f] rounded-xl text-white focus:border-purple-600 outline-none"
                     />
                   </div>
-                )}
 
-                {/* Approved */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editForm.approved}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, approved: e.target.checked })
-                    }
-                    className="w-5 h-5 rounded border-[#2a0c3f] bg-[#0d0413] text-purple-600 focus:ring-purple-600"
-                  />
-                  <span className="text-sm text-slate-300">Approved</span>
-                </label>
+                  {/* Email */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, email: e.target.value })
+                      }
+                      className="w-full px-4 py-2 bg-[#0d0413] border border-[#2a0c3f] rounded-xl text-white focus:border-purple-600 outline-none"
+                    />
+                  </div>
 
-                {/* Suspended */}
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editForm.suspended}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, suspended: e.target.checked })
-                    }
-                    className="w-5 h-5 rounded border-[#2a0c3f] bg-[#0d0413] text-red-600 focus:ring-red-600"
-                  />
-                  <span className="text-sm text-slate-300">Suspended</span>
-                </label>
+                  {/* Roles */}
+                  {hasPermission('users.edit.roles') && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Roles
+                      </label>
+                      <RoleSelector
+                        selectedRoles={editForm.roles}
+                        onChange={(newRoles) =>
+                          setEditForm({ ...editForm, roles: newRoles })
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Approved */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.approved}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, approved: e.target.checked })
+                      }
+                      className="w-5 h-5 rounded border-[#2a0c3f] bg-[#0d0413] text-purple-600 focus:ring-purple-600"
+                    />
+                    <span className="text-sm text-slate-300">Approved</span>
+                  </label>
+
+                  {/* Suspended */}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.suspended}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, suspended: e.target.checked })
+                      }
+                      className="w-5 h-5 rounded border-[#2a0c3f] bg-[#0d0413] text-red-600 focus:ring-red-600"
+                    />
+                    <span className="text-sm text-slate-300">Suspended</span>
+                  </label>
+                </div>
+
+                {/* Advanced panel */}
+                <div className="mt-4 border-t border-[#2a0c3f] pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((v) => !v)}
+                    className="text-sm text-purple-300 hover:text-purple-200 transition-colors"
+                  >
+                    {showAdvanced ? "Hide advanced details" : "Show advanced details"}
+                  </button>
+                  {showAdvanced && currentEditingUser && (
+                    <div className="mt-3 space-y-2 text-sm text-slate-200">
+                      <div className="flex items-center justify-between bg-[#0d0413] border border-[#2a0c3f] rounded-lg px-3 py-2">
+                        <span>Steam ID</span>
+                        <span className="font-mono text-xs text-slate-300">
+                          {currentEditingUser.steam_id || "Not linked"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between bg-[#0d0413] border border-[#2a0c3f] rounded-lg px-3 py-2">
+                        <span>Discord ID</span>
+                        <span className="font-mono text-xs text-slate-300">
+                          {currentEditingUser.discord_id || "Not linked"}
+                        </span>
+                      </div>
+                      {currentEditingUser.invite_code && (
+                        <div className="flex items-center justify-between bg-[#0d0413] border border-[#2a0c3f] rounded-lg px-3 py-2">
+                          <span>Invite Code</span>
+                          <span className="font-mono text-xs text-slate-300">
+                            {currentEditingUser.invite_code}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex gap-3 mt-6">

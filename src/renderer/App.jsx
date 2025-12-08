@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "./context/AuthContext";
 import { ModalProvider } from './context/ModalContext';
+import { useHolidayMode } from "../hooks/useHolidayMode";
 import AuthLayout from "./components/Layout/AuthLayout";
 import RegisterLayout from "./components/Layout/RegisterLayout";
 import MainLayout from "./components/Layout/MainLayout";
@@ -26,17 +27,29 @@ import DownloadsPage from "../pages/DownloadsPage";
 import SystemLogs from "./components/Admin/SystemLogs";
 import DriverReset from "./components/Admin/DriverReset";
 import JobManager from "./components/Admin/JobManager";
+import UserRoles from "./components/Admin/UserRoles";
 
 export default function App() {
   const { user, authMode, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [isFirstRun, setIsFirstRun] = useState(null); // null = checking, true/false = result
   const [wizardComplete, setWizardComplete] = useState(false);
+  const { toggleHolidayMode } = useHolidayMode();
 
   // Check for first run on mount
   useEffect(() => {
     checkFirstRun();
   }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key && e.key.toUpperCase() === "C") {
+        toggleHolidayMode();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [toggleHolidayMode]);
 
   const checkFirstRun = async () => {
     if (window.electronAPI?.checkFirstRun) {
@@ -85,6 +98,8 @@ export default function App() {
         return <PendingApprovals />;
       case "user-management":
         return <UserManagement />;
+      case "user-roles":
+        return <UserRoles />;
       case "driver-reset":
         return <DriverReset />;
       case "job-manager":

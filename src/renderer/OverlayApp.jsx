@@ -4,6 +4,8 @@ import TruckStats from "./components/Overlay/TruckStats";
 import JobInfo from "./components/Overlay/JobInfo";
 import SpeedGauge from "./components/Overlay/SpeedGauge";
 
+const achievementSound = "/assets/audio/enigmaachievementsound.mp3";
+
 export default function OverlayApp() {
   const [telemetryData, setTelemetryData] = useState({
     speed: 0,
@@ -27,6 +29,7 @@ export default function OverlayApp() {
   });
 
   const [minimized, setMinimized] = useState(false);
+  const [achievementToast, setAchievementToast] = useState(null);
 
   useEffect(() => {
     if (window.electronOverlay) {
@@ -44,6 +47,24 @@ export default function OverlayApp() {
           ...data
         }));
       });
+
+      if (window.electronOverlay.onAchievementUnlock) {
+        window.electronOverlay.onAchievementUnlock((data) => {
+          setAchievementToast(data);
+
+          try {
+            const audio = new Audio(achievementSound);
+            audio.volume = 0.65;
+            audio.play().catch((err) => {
+              console.warn("[Overlay] Achievement audio blocked:", err?.message);
+            });
+          } catch (err) {
+            console.warn("[Overlay] Achievement audio init failed:", err?.message);
+          }
+
+          setTimeout(() => setAchievementToast(null), 4000);
+        });
+      }
     }
 
     const handleKeyDown = (e) => {
@@ -76,6 +97,29 @@ export default function OverlayApp() {
 
   return (
     <div className="w-full h-full p-4 select-none">
+      {achievementToast && (
+        <div className="pointer-events-none fixed top-6 left-1/2 -translate-x-1/2 z-[99999] drop-shadow-xl">
+          <div className="min-w-[320px] rounded-xl border border-[#6A0DAD] bg-gradient-to-r from-[#2a0e4a]/90 via-[#1b1024]/90 to-[#c4172e]/90 text-white shadow-2xl shadow-black/50 px-4 py-3 backdrop-blur-lg">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center text-xl">
+                {achievementToast.icon || "★"}
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-amber-200">
+                  Achievement Unlocked
+                </p>
+                <p className="text-sm font-semibold leading-tight">
+                  {achievementToast.name || achievementToast.key}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-200/90 mt-2 line-clamp-2">
+              {achievementToast.description || "Achievement unlocked!"}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="w-full h-full bg-black/40 backdrop-blur-lg rounded-2xl border border-purple-500/20 shadow-2xl overflow-hidden">
         
         {/* Header */}

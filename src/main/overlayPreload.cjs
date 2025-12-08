@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('electronOverlay', {
         ipcRenderer.on('job:update', (_event, data) => callback(data));
     },
 
+    onAchievementUnlock: (callback) => {
+        ipcRenderer.on('achievement:unlock', (_event, data) => callback(data));
+    },
+
     toggle: () => ipcRenderer.invoke('overlay:toggle'),
     
     getVisible: () => ipcRenderer.invoke('overlay:get-visible')

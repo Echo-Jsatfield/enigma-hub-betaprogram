@@ -82,6 +82,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   saveToken: (token) => ipcRenderer.send('save-token', token),
 
+  // Achievements -> overlay bridge
+  achievementToast: (payload) => ipcRenderer.send('achievement:toast', payload),
+
   // Job Events
   onJobDeleted: (callback) => {
     const listener = (event, data) => callback(data);

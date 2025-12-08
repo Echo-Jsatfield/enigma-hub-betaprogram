@@ -300,34 +300,34 @@ export default function DriverReset() {
       </div>
 
       {/* Drivers List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filteredDrivers.map((driver) => (
           <motion.div
             key={driver.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-[#1b1024] to-[#12051a] rounded-2xl p-6 border border-[#2c1e3a] hover:border-[#6A0DAD]/70 transition-all shadow-xl shadow-black/60"
+            className="bg-gradient-to-br from-[#1b1024] to-[#12051a] rounded-xl p-4 border border-[#2c1e3a] hover:border-[#6A0DAD]/70 transition-all shadow-lg shadow-black/40"
           >
             {/* Driver Header */}
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-4">
                 {driver.avatar ? (
                   <img
                     src={driver.avatar}
                     alt={driver.username}
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#9d6bff] shadow-lg shadow-[#6a0dad]/60"
+                    className="w-12 h-12 rounded-full object-cover border-2 border-[#9d6bff] shadow-md shadow-[#6a0dad]/60"
                   />
                 ) : (
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#6A0DAD] to-[#f8cc00] rounded-full flex items-center justify-center shadow-lg shadow-[#6A0DAD]/60">
-                    <User className="w-8 h-8 text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#6A0DAD] to-[#f8cc00] rounded-full flex items-center justify-center shadow-md shadow-[#6A0DAD]/60">
+                    <User className="w-6 h-6 text-white" />
                   </div>
                 )}
                 <div>
-                  <h3 className="text-2xl font-semibold text-slate-50 mb-1 tracking-tight">
+                  <h3 className="text-xl font-semibold text-slate-50 mb-1 tracking-tight">
                     {driver.username}
                   </h3>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] bg-[#6a0dad]/20 text-[#e1c4ff] px-2 py-1 rounded-full uppercase tracking-wide">
+                    <span className="text-[10px] bg-[#6a0dad]/20 text-[#e1c4ff] px-2 py-0.5 rounded-full uppercase tracking-wide">
                       Driver
                     </span>
                     <span className="text-[11px] text-slate-500">
@@ -339,63 +339,63 @@ export default function DriverReset() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="rounded-xl p-4 border border-[#2c1e3a] bg-[#12051a]/80">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              <div className="rounded-lg p-3 border border-[#2c1e3a] bg-[#12051a]/80">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-sky-400" />
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wide">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">
                     Total Jobs
                   </span>
                 </div>
-                <p className="text-2xl font-semibold text-slate-50">
+                <p className="text-xl font-semibold text-slate-50">
                   {driver.total_jobs || 0}
                 </p>
               </div>
 
-              <div className="rounded-xl p-4 border border-[#2c1e3a] bg-[#12051a]/80">
+              <div className="rounded-lg p-3 border border-[#2c1e3a] bg-[#12051a]/80">
                 <div className="flex items-center gap-2 mb-2">
                   <Award className="w-4 h-4 text-emerald-400" />
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wide">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">
                     Completed
                   </span>
                 </div>
-                <p className="text-2xl font-semibold text-slate-50">
+                <p className="text-xl font-semibold text-slate-50">
                   {driver.total_completed || 0}
                 </p>
               </div>
 
-              <div className="rounded-xl p-4 border border-[#2c1e3a] bg-[#12051a]/80">
+              <div className="rounded-lg p-3 border border-[#2c1e3a] bg-[#12051a]/80">
                 <div className="flex items-center gap-2 mb-2">
                   <MapPin className="w-4 h-4 text-purple-300" />
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wide">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">
                     Distance
                   </span>
                 </div>
-                <p className="text-2xl font-semibold text-slate-50">
+                <p className="text-xl font-semibold text-slate-50">
                   {driver.total_distance?.toLocaleString() || 0} km
                 </p>
               </div>
 
-              <div className="rounded-xl p-4 border border-[#2c1e3a] bg-[#12051a]/80">
+              <div className="rounded-lg p-3 border border-[#2c1e3a] bg-[#12051a]/80">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-4 h-4 text-amber-300" />
-                  <span className="text-[11px] text-slate-400 uppercase tracking-wide">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">
                     Cancelled
                   </span>
                 </div>
-                <p className="text-2xl font-semibold text-slate-50">
+                <p className="text-xl font-semibold text-slate-50">
                   {driver.total_cancelled || 0}
                 </p>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
               {/* Reset Stats - Low danger */}
               <button
                 onClick={() => handleResetStats(driver.id, driver.username)}
                 disabled={actionLoading === `stats-${driver.id}`}
-                className="group relative flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white transition-all shadow-lg hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
+                className="group relative flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white transition-all shadow-lg hover:scale-[1.01] disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
               >
                 <RotateCcw
                   className={`w-4 h-4 ${
@@ -415,7 +415,7 @@ export default function DriverReset() {
                   handleDeleteCancelledJobs(driver.id, driver.username)
                 }
                 disabled={actionLoading === `cancelled-${driver.id}`}
-                className="group relative flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white transition-all shadow-lg hover:scale-[1.02] disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
+                className="group relative flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white transition-all shadow-lg hover:scale-[1.01] disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] hover:from-[#6A0DAD] hover:to-[#ffdb4d]"
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="font-medium text-sm">
@@ -431,7 +431,7 @@ export default function DriverReset() {
                   handleDeleteAllJobs(driver.id, driver.username)
                 }
                 disabled={actionLoading === `jobs-${driver.id}`}
-                className="group relative flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white transition-all shadow-lg hover:shadow-red-500/25 hover:scale-[1.02] disabled:from-slate-700 disabled:to-slate-800 disabled:cursor-not-allowed bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600"
+                className="group relative flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white transition-all shadow-lg hover:shadow-red-500/25 hover:scale-[1.01] disabled:from-slate-700 disabled:to-slate-800 disabled:cursor-not-allowed bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600"
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="font-medium text-sm">
@@ -445,7 +445,7 @@ export default function DriverReset() {
               <button
                 onClick={() => handleFullReset(driver.id, driver.username)}
                 disabled={actionLoading === `full-${driver.id}`}
-                className="group relative flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white transition-all border-2 border-red-500/60 hover:border-red-400 shadow-lg hover:shadow-red-500/40 hover:scale-[1.02] disabled:border-slate-700 disabled:bg-slate-800 disabled:cursor-not-allowed bg-gradient-to-br from-red-900 to-red-950 hover:from-red-800 hover:to-red-900"
+                className="group relative flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-white transition-all border-2 border-red-500/60 hover:border-red-400 shadow-lg hover:shadow-red-500/40 hover:scale-[1.01] disabled:border-slate-700 disabled:bg-slate-800 disabled:cursor-not-allowed bg-gradient-to-br from-red-900 to-red-950 hover:from-red-800 hover:to-red-900"
               >
                 <AlertTriangle className="w-4 h-4" />
                 <span className="font-bold text-sm">

@@ -21,6 +21,8 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import EnigmaLogo from "../../assets/enigma-logo.svg";
+import HolidayIcon from "../../../components/Holiday/HolidayIcon.jsx";
+import HolidayLogo from "../../../assets/logo-wreath.png";
 import { TextAlignJustify } from "lucide-react";
 
 export default function Sidebar({
@@ -65,9 +67,7 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`${
-        collapsed ? "w-16" : "w-64"
-      } transition-all duration-300 flex flex-col border-r shadow-xl`}
+      className={`sidebar ${collapsed ? "w-16" : "w-64"} transition-all duration-300 flex flex-col border-r shadow-xl`}
       style={{
         background: "#0b0c1a", // match auth panel background
         borderColor: "#2d1b5c",
@@ -79,10 +79,20 @@ export default function Sidebar({
         style={{ borderColor: "#2d1b5c" }}
       >
         {collapsed ? (
-          <img src={EnigmaLogo} alt="E" className="w-7 h-7 mx-auto" />
+          <HolidayIcon
+            defaultSrc={EnigmaLogo}
+            holidaySrc={HolidayLogo}
+            alt="E"
+            className="w-7 h-7 mx-auto"
+          />
         ) : (
           <div className="flex items-center gap-2">
-            <img src={EnigmaLogo} alt="Enigma Hub" className="w-6 h-6" />
+            <HolidayIcon
+              defaultSrc={EnigmaLogo}
+              holidaySrc={HolidayLogo}
+              alt="Enigma Hub"
+              className="w-6 h-6"
+            />
             <div className="flex flex-col">
               <span className="font-semibold text-sm tracking-[0.18em] uppercase text-slate-100">
                 Enigma Logistics
@@ -106,7 +116,7 @@ export default function Sidebar({
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 flex flex-col mt-2 gap-2 overflow-y-auto px-2 pb-4">
+      <nav className="sidebar sidebar-nav flex-1 flex flex-col mt-2 gap-2 overflow-y-auto px-2 pb-4">
         <NavItem
           icon={<LayoutDashboard size={18} />}
           label="Dashboard"
@@ -161,17 +171,18 @@ export default function Sidebar({
         {isStaff() && (
           <DropdownNavItem
             icon={<Shield size={18} />}
-            label="Admin"
-            collapsed={collapsed}
-            expanded={adminExpanded}
-            onToggle={() => setAdminExpanded(!adminExpanded)}
-            isActive={
-              currentPage === "job-manager" ||
-              currentPage === "user-management" ||
-              currentPage === "system-logs" ||
-              currentPage === "driver-reset"
-            }
-          >
+          label="Admin"
+          collapsed={collapsed}
+          expanded={adminExpanded}
+          onToggle={() => setAdminExpanded(!adminExpanded)}
+          isActive={
+            currentPage === "job-manager" ||
+            currentPage === "user-management" ||
+            currentPage === "user-roles" ||
+            currentPage === "system-logs" ||
+            currentPage === "driver-reset"
+          }
+        >
             <SubNavItem
               icon={<FileText size={16} />}
               label="Job Manager"
@@ -187,6 +198,15 @@ export default function Sidebar({
               active={currentPage === "user-management"}
               onClick={() => {
                 setCurrentPage("user-management");
+                if (collapsed) setAdminExpanded(false);
+              }}
+            />
+            <SubNavItem
+              icon={<Shield size={16} />}
+              label="User Roles"
+              active={currentPage === "user-roles"}
+              onClick={() => {
+                setCurrentPage("user-roles");
                 if (collapsed) setAdminExpanded(false);
               }}
             />
@@ -370,7 +390,7 @@ function NavItem({ icon, label, collapsed, active, onClick }) {
     <motion.button
       whileHover={{ x: 5 }}
       onClick={onClick}
-      className={`flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 ${
+      className={`sidebar-item flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 ${
         active
           ? "text-slate-50 shadow-lg shadow-black/50 border-transparent"
           : "text-slate-400 hover:text-slate-50 hover:border-[#6A0DAD]/60"
@@ -408,7 +428,7 @@ function DropdownNavItem({ icon, label, collapsed, expanded, onToggle, isActive,
       <motion.button
         whileHover={{ x: 5 }}
         onClick={onToggle}
-        className={`flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 w-full ${
+        className={`sidebar-item flex items-center gap-3 py-2 px-4 rounded-xl border transition-all duration-150 w-full ${
           isActive
             ? "text-slate-50 shadow-lg shadow-black/50 border-transparent"
             : "text-slate-400 hover:text-slate-50 hover:border-[#6A0DAD]/60"

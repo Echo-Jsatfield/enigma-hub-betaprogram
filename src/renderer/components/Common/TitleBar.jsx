@@ -1,5 +1,8 @@
 // src/components/Common/TitleBar.jsx
 import React from "react";
+import HolidayIcon from "../../../components/Holiday/HolidayIcon.jsx";
+import DefaultLogo from "../../assets/enigma-logo.svg";
+import HolidayLogo from "../../../assets/logo-wreath.png";
 
 export default function TitleBar({ showLogo = true }) {
   const handleMinimize = () => {
@@ -22,27 +25,35 @@ export default function TitleBar({ showLogo = true }) {
 
   return (
     <div
-      className="h-8 flex items-center justify-between px-4 select-none shadow-lg border-b"
+      className="titlebar h-8 flex items-center justify-between px-4 select-none shadow-lg border-b"
       style={{
         WebkitAppRegion: "drag",
-        background: "#0b0c1a", // match auth panel background
-        borderColor: "#2d1b5c",
+        background: "var(--titlebar-bg, #0b0c1a)", // match auth panel background
+        borderColor: "var(--titlebar-border, #2d1b5c)",
         backdropFilter: "blur(8px)",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.45)"
+        boxShadow: "var(--titlebar-shadow, 0 10px 30px rgba(0,0,0,0.45))"
       }}
     >
       {/* Left side - Logo */}
       <div className="flex items-center gap-2">
         {showLogo && (
-          <span
-            className="font-bold text-sm tracking-wide"
-            style={{
-              color: "#f8cc00",                // your gold accent
-              textShadow: "0 0 6px rgba(248, 204, 0, 0.4)"
-            }}
-          >
-            ENIGMA HUB
-          </span>
+          <>
+            <HolidayIcon
+              defaultSrc={DefaultLogo}
+              holidaySrc={HolidayLogo}
+              alt="Enigma Hub"
+              className="titlebar-logo w-5 h-5"
+            />
+            <span
+              className="titlebar-logo font-bold text-sm tracking-wide"
+              style={{
+                color: "#f8cc00",                // your gold accent
+                textShadow: "0 0 6px rgba(248, 204, 0, 0.4)"
+              }}
+            >
+              ENIGMA HUB
+            </span>
+          </>
         )}
       </div>
 
@@ -54,38 +65,38 @@ export default function TitleBar({ showLogo = true }) {
         {/* Minimize */}
         <div
           onClick={handleMinimize}
-          className="w-4 h-4 rounded-full cursor-pointer transition-all"
+          className="titlebar-button w-4 h-4 rounded-full cursor-pointer transition-all"
           title="Minimize"
           style={{
             WebkitAppRegion: "no-drag",
-            backgroundColor: "#6A0DAD",          // brand purple
-            border: "1px solid #9e4ce6",         // lighter purple ring
+            backgroundColor: "var(--titlebar-btn-min, #6A0DAD)",          // brand purple
+            border: "1px solid var(--titlebar-btn-min-border, #9e4ce6)",  // lighter purple ring
             boxShadow: "0 0 6px rgba(106, 13, 173, 0.5)"
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#8d24ff"; // lighter purple hover
+            e.currentTarget.style.backgroundColor = "var(--titlebar-btn-min-hover, #8d24ff)"; // lighter purple hover
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#6A0DAD";
+            e.currentTarget.style.backgroundColor = "var(--titlebar-btn-min, #6A0DAD)";
           }}
         />
 
         {/* Close */}
         <div
           onClick={handleClose}
-          className="w-4 h-4 rounded-full cursor-pointer transition-all"
+          className="titlebar-button w-4 h-4 rounded-full cursor-pointer transition-all"
           title="Close"
           style={{
             WebkitAppRegion: "no-drag",
-            backgroundColor: "#e43445",
-            border: "1px solid #ff6b7a",
+            backgroundColor: "var(--titlebar-btn-close, #e43445)",
+            border: "1px solid var(--titlebar-btn-close-border, #ff6b7a)",
             boxShadow: "0 0 6px rgba(255, 60, 60, 0.5)"
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#ff4a59";
+            e.currentTarget.style.backgroundColor = "var(--titlebar-btn-close-hover, #ff4a59)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#e43445";
+            e.currentTarget.style.backgroundColor = "var(--titlebar-btn-close, #e43445)";
           }}
         />
       </div>

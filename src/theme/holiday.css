@@ -1,0 +1,401 @@
+body.holiday {
+  --color-primary: #c4172e;
+  --color-secondary: #ffcc66;
+  --color-surface: #0d0b16;
+  --color-surface-2: #171428;
+  --color-text: #ffffff;
+  --color-muted: #dcdde5;
+  --gradient-bg: linear-gradient(135deg, #c4172e 0%, #571067 50%, #0d0b16 100%);
+  --gradient-card: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  --gradient-button: linear-gradient(90deg, #c4172e 0%, #ffcc66 100%);
+  --shadow-glow: 0 0 24px rgba(255, 204, 102, 0.45);
+  --border-soft: rgba(255, 255, 255, 0.14);
+  --panel-radius: 18px;
+  --blur-amount: 20px;
+  background: var(--gradient-bg);
+  position: relative;
+}
+
+/* Large centered snowflake accent across the full page */
+body.holiday::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url("../assets/snowflake.png") no-repeat center center;
+  background-size: clamp(900px, 95vw, 1700px);
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+  filter: drop-shadow(0 0 10px rgba(248, 204, 0, 0.08));
+}
+
+/* Sidebar Gradient Holiday */
+body.holiday .sidebar {
+  background: linear-gradient(
+    180deg,
+    #150018 0%,
+    #6A0DAD 40%,
+    #c4172e 100%
+  );
+  background-image:
+    linear-gradient(180deg, rgba(21, 0, 24, 0.75), rgba(106, 13, 173, 0.55), rgba(196, 23, 46, 0.55)),
+    url("../assets/christmas-bg.svg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-blend-mode: overlay;
+}
+
+/* Sidebar Active Item */
+body.holiday .sidebar-item-active {
+  background: linear-gradient(90deg, #c4172e33, #f8cc0022);
+  border-left: 3px solid var(--accent-color);
+  backdrop-filter: blur(3px);
+}
+
+/* Sidebar base + nav items */
+body.holiday .sidebar {
+  border-color: #f8cc00;
+  box-shadow: 0 8px 30px #c4172e33;
+}
+
+body.holiday .sidebar-item {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+body.holiday .sidebar-item:hover {
+  border-color: #f8cc00 !important;
+  box-shadow: 0 0 12px #f8cc0044;
+}
+
+body.holiday .sidebar-item-active {
+  color: #fff;
+  box-shadow: 0 0 12px #c4172e33, 0 0 8px #f8cc0022 inset;
+}
+
+/* Cards */
+body.holiday .card {
+  border-top: 2px solid var(--holiday-gold, #ffdf70);
+  box-shadow: 0 0 12px #c4172e22;
+}
+
+/* Holiday Buttons */
+body.holiday .btn-primary {
+  background: linear-gradient(
+    90deg,
+    var(--holiday-red, #c4172e),
+    var(--accent-color, #ffcc66)
+  ) !important;
+  border: none;
+}
+
+/* ----------------------------------------------
+   HOLIDAY TITLEBAR (matches holiday sidebar)
+------------------------------------------------*/
+body.holiday .titlebar {
+  background: linear-gradient(
+    90deg,
+    #6A0DAD 0%,
+    #c4172e 70%,
+    #f8cc00 100%
+  );
+  border-bottom: 1px solid #f8cc00;
+  box-shadow: 0 2px 10px #c4172e44;
+}
+
+/* Titlebar Buttons (Minimize / Close / Settings) */
+body.holiday .titlebar-button {
+  color: #ffdf70 !important;
+  transition: 0.3s ease;
+}
+
+body.holiday .titlebar-button:hover {
+  color: #ffffff !important;
+  text-shadow: 0 0 6px #ffdf70;
+}
+
+body.holiday .titlebar-icon {
+  filter: drop-shadow(0 0 6px #ffdf70);
+}
+
+body.holiday .titlebar-logo {
+  filter: drop-shadow(0 0 10px #ffdf70);
+}
+
+/* Snow above everything */
+body.holiday canvas {
+  z-index: 999999;
+  pointer-events: none;
+}
+
+/* Auth / Register shells */
+body.holiday .auth-shell {
+  background: radial-gradient(circle at 20% 20%, #2a0e4a55, transparent 45%),
+              radial-gradient(circle at 80% 10%, #c4172e44, transparent 40%),
+              radial-gradient(circle at 50% 80%, #f8cc0033, transparent 50%),
+              #0b0c1a;
+}
+
+body.holiday .auth-hero {
+  background-image:
+    url("../assets/christmas-bg.svg"),
+    radial-gradient(circle at 30% 30%, rgba(106, 13, 173, 0.35), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(200, 23, 46, 0.35), transparent 50%);
+  background-size: cover, 120% 120%, 120% 120%;
+  background-position: center, center, center;
+  background-repeat: no-repeat;
+  background-blend-mode: overlay;
+}
+
+body.holiday .auth-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(42, 14, 74, 0.55), rgba(87, 16, 103, 0.45), rgba(196, 23, 46, 0.45));
+  opacity: 0.65;
+}
+
+/* Let the textured hero show through by softening the base overlay */
+body.holiday .auth-hero .auth-hero-overlay {
+  opacity: 0.55;
+}
+
+body.holiday .auth-panel {
+  background: linear-gradient(180deg, #120c22, #0d0b16);
+  box-shadow: 0 20px 60px #00000055;
+}
+
+body.holiday .auth-btn {
+  background: linear-gradient(90deg, #c4172e 0%, #f8cc00 100%) !important;
+  box-shadow: 0 12px 30px #c4172e40;
+}
+
+/* ----------------------------------------------
+   HOLIDAY CARD HOVER GLOW
+   Applies only during holiday mode
+------------------------------------------------*/
+body.holiday .card:hover,
+body.holiday [class*="card"]:hover {
+  box-shadow:
+    0 0 12px #c4172e55,
+    0 0 4px #ffdf7044;
+  transform: translateY(-2px);
+  transition: 0.25s ease-in-out;
+}
+
+/* ----------------------------------------------
+   PROFILE PAGE HOLIDAY ACCENTS
+------------------------------------------------*/
+body.holiday .profile-page {
+  position: relative;
+}
+
+body.holiday .profile-page::after {
+  content: "";
+  position: fixed;
+  right: 4%;
+  top: 12%;
+  width: 180px;
+  height: 180px;
+  background: url("../assets/snowflake.png") no-repeat center/contain;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+body.holiday .profile-page .card:first-of-type {
+  background-image: linear-gradient(90deg, #6a0dad 0%, #241233 45%, #c4172e 100%);
+  border-color: #f8cc00aa;
+  box-shadow: 0 18px 40px #00000066, 0 0 14px #c4172e44;
+}
+
+body.holiday .profile-page .profile-hero {
+  background-image:
+    linear-gradient(90deg, #6a0dad 0%, #241233 45%, #c4172e 100%),
+    radial-gradient(circle at 20% 30%, rgba(248, 204, 0, 0.18), transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(106, 13, 173, 0.25), transparent 50%);
+  border-color: #f8cc00aa;
+  box-shadow: 0 18px 40px #00000066, 0 0 14px #c4172e44;
+}
+
+/* Profile stat tiles */
+body.holiday .profile-page .card {
+  border-color: #f8cc0077;
+  box-shadow: 0 0 12px #c4172e22;
+}
+
+body.holiday .profile-page .card:hover {
+  box-shadow:
+    0 0 14px #c4172e55,
+    0 0 5px #ffdf7044;
+  transform: translateY(-2px);
+}
+
+/* Specific profile stat tiles with holiday gradients */
+body.holiday .profile-page .profile-job-breakdown {
+  background-image: linear-gradient(135deg, #241233 0%, #4b1a63 50%, #c4172e 100%);
+  border-color: #f8cc00aa;
+}
+
+body.holiday .profile-page .profile-safety {
+  background-image: linear-gradient(135deg, #1c112c 0%, #0f211d 45%, #2a6c2f 100%);
+  border-color: #f8cc0099;
+}
+
+body.holiday .profile-page .profile-achievements {
+  background-image: linear-gradient(135deg, #2a0e4a 0%, #3a1a1d 50%, #7a0a0a 100%);
+  border-color: #f8cc00aa;
+  box-shadow: 0 0 10px #f8cc0044, 0 0 14px #c4172e33 inset;
+}
+
+/* Profile hero KPI chips */
+body.holiday .profile-page .profile-kpi {
+  background-image: linear-gradient(135deg, #6a0dad 0%, #241233 50%, #c4172e 100%);
+  border-color: #f8cc0077;
+  box-shadow: 0 12px 24px #00000055, 0 0 12px #c4172e33;
+}
+
+body.holiday .profile-page img.rounded-2xl {
+  border-color: #f8cc00 !important;
+  box-shadow: 0 0 18px #ffdf7066, 0 0 10px #c4172e55;
+}
+
+body.holiday .profile-page .role-badge {
+  background: linear-gradient(120deg, #c4172e 0%, #6a0dad 60%, #f8cc00 100%);
+  border-color: #f8cc00cc !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px #c4172e44;
+}
+
+/* ----------------------------------------------
+   SETTINGS PAGE HOLIDAY ACCENTS (subtle)
+------------------------------------------------*/
+body.holiday .settings-page {
+  position: relative;
+}
+
+body.holiday .settings-page h1 {
+  background: linear-gradient(90deg, #f8cc00, #ffffff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+body.holiday .settings-page .h-10.w-10 {
+  box-shadow: 0 0 14px #f8cc0044;
+  border-color: #f8cc00aa !important;
+}
+
+body.holiday .settings-page .rounded-2xl.p-2,
+body.holiday .settings-page .rounded-2xl.p-6 {
+  box-shadow: 0 0 18px #c4172e22;
+}
+
+body.holiday .settings-page .divide-y > * {
+  border-color: rgba(255, 223, 112, 0.15) !important;
+}
+
+body.holiday .settings-page input:checked {
+  accent-color: #f8cc00;
+}
+
+/* ----------------------------------------------
+   JOBS PAGE HOLIDAY ACCENTS
+------------------------------------------------*/
+body.holiday .jobs-page {
+  position: relative;
+}
+
+body.holiday .jobs-page::after {
+  content: "";
+  position: fixed;
+  left: 3%;
+  bottom: 10%;
+  width: 160px;
+  height: 160px;
+  background: url("../assets/snowflake.png") no-repeat center/contain;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+body.holiday .jobs-page .rounded-2xl,
+body.holiday .jobs-page .status-badge {
+  transition: 0.2s ease-in-out;
+}
+
+body.holiday .jobs-page .rounded-2xl:hover {
+  box-shadow: 0 0 12px #c4172e33, 0 0 6px #ffdf7033;
+}
+
+body.holiday .jobs-page .status-badge {
+  border: 1px solid #f8cc0066;
+  box-shadow: 0 0 8px #c4172e33 inset;
+}
+
+/* Profile recent jobs and rows */
+body.holiday .profile-page .jobs-toggle {
+  background-image: linear-gradient(135deg, #0f1d3a 0%, #123c61 45%, #5b1c83 100%);
+  border-color: #f8cc0080 !important;
+  box-shadow: 0 8px 18px #00000055, 0 0 10px #c4172e33;
+}
+
+body.holiday .profile-page .job-row {
+  background-image: linear-gradient(90deg, #5b1c83 0%, #241233 45%, #c4172e 100%);
+  border-color: #f8cc0077;
+  box-shadow: 0 12px 24px #00000055, 0 0 10px #c4172e33;
+}
+
+body.holiday .profile-page .job-row:hover {
+  box-shadow: 0 0 14px #c4172e55, 0 0 6px #ffdf7044;
+  transform: translateY(-1px);
+}
+
+/* Dashboard game headers & recent job groups */
+body.holiday .dashboard-page .card button {
+  background-image: linear-gradient(135deg, #0f1d3a 0%, #1d3c5f 45%, #5b1c83 100%) !important;
+  border-color: #f8cc0077 !important;
+  color: #e9eef9 !important;
+}
+
+body.holiday .dashboard-page .card button:hover {
+  box-shadow: 0 0 12px #c4172e44, 0 0 6px #ffdf7044;
+}
+
+/* Fallback for recent-jobs headers (inline background overrides) */
+body.holiday button[style*="#12051a"] {
+  background-image: linear-gradient(135deg, #0f1d3a 0%, #1d3c5f 45%, #5b1c83 100%) !important;
+  background-color: transparent !important;
+  border-color: #f8cc0077 !important;
+  color: #e9eef9 !important;
+}
+
+body.holiday button[style*="#12051a"]:hover {
+  box-shadow: 0 0 12px #c4172e44, 0 0 6px #ffdf7044;
+}
+
+/* Dashboard hero + stat panels */
+body.holiday .dashboard-page .dashboard-hero {
+  background-image:
+    linear-gradient(120deg, #6a0dad 0%, #241233 45%, #c4172e 100%),
+    radial-gradient(circle at 20% 30%, rgba(248, 204, 0, 0.16), transparent 55%),
+    radial-gradient(circle at 80% 70%, rgba(106, 13, 173, 0.2), transparent 55%);
+  border-color: #f8cc00aa;
+  box-shadow: 0 20px 50px #00000066, 0 0 16px #c4172e44;
+}
+
+body.holiday .dashboard-page .dashboard-stat {
+  background-image: linear-gradient(135deg, #2a0e4a 0%, #241233 45%, #c4172e 100%);
+  border-color: #f8cc0077;
+  box-shadow: 0 12px 30px #00000055, 0 0 12px #c4172e33;
+}
+
+body.holiday .dashboard-page .dashboard-section {
+  background-image: linear-gradient(135deg, #1b1024 0%, #241233 40%, #2a0e4a 100%);
+  border-color: #f8cc0055;
+}
+
+body.holiday .dashboard-page .dashboard-leaderboard,
+body.holiday .dashboard-page .dashboard-recent {
+  background-image: linear-gradient(135deg, #0f1d3a 0%, #1f2740 45%, #3a1230 100%);
+  border-color: #f8cc0077;
+  box-shadow: 0 14px 32px #00000055, 0 0 14px #c4172e33;
+}

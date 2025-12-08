@@ -24,15 +24,8 @@ let lastTelemetryData = {
     connected: false
 };
 
-let lastJobData = {
-    active: false,
-    cargo: null,
-    pickup: null,
-    delivery: null,
-    distance: 0,
-    remainingDistance: 0,
-    income: 0
-};
+
+let lastAchievementToast = null;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'overlay-config.json');
 
@@ -167,18 +160,17 @@ export function toggleOverlay() {
     if (!overlayWindow) {
         console.log('[Overlay] Creating overlay window...');
         createOverlay();
-        // After creating, show it
         setTimeout(() => {
             if (overlayWindow) {
                 overlayWindow.show();
                 overlayVisible = true;
-                
-                // ✅ Send stored data to new overlay
-                console.log('[Overlay] 📤 Sending stored telemetry data to new window');
+                console.log('[Overlay] Sending stored telemetry data to new window');
                 overlayWindow.webContents.send('telemetry:update', lastTelemetryData);
                 overlayWindow.webContents.send('job:update', lastJobData);
-                
-                console.log('[Overlay] ✅ Overlay shown');
+                if (lastAchievementToast) {
+                    overlayWindow.webContents.send('achievement:unlock', lastAchievementToast);
+                }
+                console.log('[Overlay] Overlay shown');
             }
         }, 500);
         return;
@@ -192,41 +184,41 @@ export function toggleOverlay() {
         console.log('[Overlay] Showing overlay...');
         overlayWindow.show();
         overlayVisible = true;
-        
-        // ✅ Send stored data to overlay when it opens
-        console.log('[Overlay] 📤 Sending stored telemetry data');
+        console.log('[Overlay] Sending stored telemetry data');
         overlayWindow.webContents.send('telemetry:update', lastTelemetryData);
         overlayWindow.webContents.send('job:update', lastJobData);
+        if (lastAchievementToast) {
+            overlayWindow.webContents.send('achievement:unlock', lastAchievementToast);
+        }
     }
 
     const [x, y] = overlayWindow.getPosition();
     const [width, height] = overlayWindow.getSize();
     saveOverlayConfig({ x, y, width, height, visible: overlayVisible });
 
-    console.log('[Overlay] ✅ Toggled to:', overlayVisible ? 'visible' : 'hidden');
+    console.log('[Overlay] Toggled to:', overlayVisible ? 'visible' : 'hidden');
 }
-
 export function sendToOverlay(channel, data) {
-    // ✅ Store latest data
+    // Store latest data
     if (channel === 'telemetry:update') {
         lastTelemetryData = { ...lastTelemetryData, ...data };
     } else if (channel === 'job:update') {
         lastJobData = { ...lastJobData, ...data };
+    } else if (channel === 'achievement:unlock') {
+        lastAchievementToast = data;
     }
     
     if (overlayWindow) {
-        // Only log important events (not telemetry spam)
         if (channel !== 'telemetry:update') {
-            console.log('[Overlay] 📤 Sending to overlay:', channel);
+            console.log('[Overlay] Sending to overlay:', channel);
         }
         overlayWindow.webContents.send(channel, data);
     } else {
         if (channel !== 'telemetry:update') {
-            console.log('[Overlay] ⚠️ Cannot send - overlay window not created');
+            console.log('[Overlay] Cannot send - overlay window not created');
         }
     }
 }
-
 export function isOverlayVisible() {
     return overlayVisible;
 }
@@ -239,3 +231,11 @@ ipcMain.handle('overlay:toggle', () => {
 ipcMain.handle('overlay:get-visible', () => {
     return overlayVisible;
 });
+
+
+
+
+
+
+
+

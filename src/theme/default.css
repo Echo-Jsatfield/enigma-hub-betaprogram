@@ -1,0 +1,25 @@
+:root {
+  --color-primary: #6a0dad;
+  --color-secondary: #f8cc00;
+  --color-surface: #0b0c1a;
+  --color-surface-2: #16162a;
+  --color-text: #ffffff;
+  --color-muted: #a8acc4;
+  --gradient-bg: linear-gradient(135deg, #0b0c1a 0%, #2a1357 50%, #0b0c1a 100%);
+  --gradient-card: linear-gradient(135deg, #1b1024 0%, #0f0918 100%);
+  --gradient-button: linear-gradient(90deg, #6a0dad 0%, #f8cc00 100%);
+  --shadow-glow: 0 0 20px #6d28d955;
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --panel-radius: 18px;
+  --blur-amount: 18px;
+}
+
+body {
+  background: var(--gradient-bg);
+  color: var(--color-text);
+}
+
+/* Base card styling helper */
+.card {
+  transition: 0.25s ease;
+}

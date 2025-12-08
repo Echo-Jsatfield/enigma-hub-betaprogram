@@ -94,12 +94,12 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+    <div className="dashboard-page p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
       {/* HEADER / HERO */}
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-[#2c1e3a] bg-gradient-to-r from-[#2a0e4a] via-[#1b1024] to-[#12051a] text-white shadow-xl shadow-black/70"
+        className="card dashboard-hero relative overflow-hidden rounded-2xl border border-[#2c1e3a] bg-gradient-to-r from-[#2a0e4a] via-[#1b1024] to-[#12051a] text-white shadow-xl shadow-black/70"
       >
         {/* subtle glow overlay */}
         <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_top,_#38bdf8_0,_transparent_55%),_radial-gradient(circle_at_bottom,_#6a0dad_0,_transparent_55%)]" />
@@ -120,6 +120,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Jobs */}
         <StatCard
+          extraClass="dashboard-stat"
           delay={0.1}
           icon={Package}
           iconClass="text-sky-300"
@@ -131,6 +132,7 @@ export default function Dashboard() {
 
         {/* Total Distance */}
         <StatCard
+          extraClass="dashboard-stat"
           delay={0.15}
           icon={TrendingUp}
           iconClass="text-emerald-300"
@@ -144,6 +146,7 @@ export default function Dashboard() {
 
         {/* Total Income */}
         <StatCard
+          extraClass="dashboard-stat"
           delay={0.2}
           icon={DollarSign}
           iconClass="text-amber-300"
@@ -153,6 +156,7 @@ export default function Dashboard() {
 
         {/* Active Drivers */}
         <StatCard
+          extraClass="dashboard-stat"
           delay={0.25}
           icon={Users}
           iconClass="text-purple-200"
@@ -170,7 +174,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+          className="card dashboard-section bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
         >
           <div className="flex items-center gap-3 mb-4">
             <Truck className="w-6 h-6 text-sky-300" />
@@ -191,7 +195,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+          className="card dashboard-section bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
         >
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle className="w-6 h-6 text-emerald-300" />
@@ -210,7 +214,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+          className="card dashboard-section bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
         >
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle className="w-6 h-6 text-red-400" />
@@ -234,7 +238,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.45 }}
-          className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+          className="card dashboard-leaderboard bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -306,7 +310,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: 16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+          className="card dashboard-recent bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -435,13 +439,14 @@ function StatCard({
   subtitle,
   subtitleClass,
   delay,
+  extraClass = "",
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className="bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70"
+      className={`card bg-[#1b1024] rounded-2xl p-5 border border-[#2c1e3a] shadow-lg shadow-black/70 ${extraClass}`}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="h-10 w-10 rounded-xl bg-[#12051a] flex items-center justify-center border border-[#2c1e3a]">
@@ -481,7 +486,7 @@ function SmallStatPill({ label, value, icon: Icon }) {
 
 function CompanyJobCard({ job, getRaceMilesColor, getModBadge }) {
   return (
-    <div className="p-3 rounded-xl bg-[#12051a]/90 border border-[#2c1e3a]">
+    <div className="card p-3 rounded-xl bg-[#12051a]/90 border border-[#2c1e3a]">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-100">

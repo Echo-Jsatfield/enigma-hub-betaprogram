@@ -173,7 +173,7 @@ export default function Jobs() {
   const totalPages = Math.ceil(totalJobs / jobsPerPage);
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+    <div className="jobs-page p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
       {/* HEADER */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -454,7 +454,7 @@ export default function Jobs() {
                     )}
                     <td className="px-6 py-3 whitespace-nowrap">
                       <span
-                        className={`px-3 py-1 text-[11px] font-semibold rounded-full ${
+                        className={`status-badge px-3 py-1 text-[11px] font-semibold rounded-full ${
                           job.status === "completed"
                             ? "bg-emerald-900/80 text-emerald-200"
                             : job.status === "active"

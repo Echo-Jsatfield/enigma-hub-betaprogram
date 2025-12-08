@@ -3,6 +3,10 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import TitleBar from "../Common/TitleBar";
+import Icon from "../../../assets/icon.ico";
+import HolidayIcon from "../../../components/Holiday/HolidayIcon.jsx";
+import HolidayLogo from "../../../assets/logo-wreath.png";
+import HeroBg from "../../../assets/christmas-bg.svg";
 
 export default function RegisterLayout() {
   const { setAuthMode, register, error, setError, loading } = useAuth();
@@ -47,7 +51,7 @@ export default function RegisterLayout() {
       return;
     }
 
-    console.log("🔄 Attempting registration...");
+        console.log("[Auth] Attempting registration...");
 
     const result = await register(
       formData.username,
@@ -78,14 +82,21 @@ export default function RegisterLayout() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0b0c1a]">
+    <div className="auth-shell h-screen w-screen flex flex-col overflow-hidden bg-[#0b0c1a]">
       <TitleBar />
 
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT SIDE - Truck Image Section */}
-        <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        <div
+          className="auth-hero hidden lg:flex lg:w-1/2 relative overflow-hidden"
+          style={{
+            backgroundImage: `url(${HeroBg})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
           {/* Gradient Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#2a0e4a] via-[#1b1024] to-[#12051a]" />
+          <div className="auth-hero-overlay absolute inset-0 bg-gradient-to-br from-[#2a0e4a] via-[#1b1024] to-[#12051a]" />
           
           {/* Animated Glows */}
           <div className="absolute top-16 left-12 w-96 h-96 bg-[#6A0DAD]/25 rounded-full blur-3xl animate-pulse" />
@@ -97,9 +108,14 @@ export default function RegisterLayout() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8 }}
-              className="mb-8"
+              className="mb-8 flex flex-col items-center"
             >
-              <div className="text-9xl mb-6">🚛</div>
+              <HolidayIcon
+                defaultSrc={Icon}
+                holidaySrc={HolidayLogo}
+                alt="Enigma Hub"
+                className="w-28 h-28 mb-6 drop-shadow-xl mx-auto"
+              />
               <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
@@ -107,7 +123,6 @@ export default function RegisterLayout() {
                 Join the Ultimate VTC Platform
               </p>
             </motion.div>
-
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -115,27 +130,25 @@ export default function RegisterLayout() {
               className="space-y-4 text-left"
             >
               <div className="flex items-center gap-3 text-gray-300">
-                <span className="text-2xl">✅</span>
+                <span className="text-2xl">&#9889;</span>
                 <span>Track your driving career</span>
               </div>
               <div className="flex items-center gap-3 text-gray-300">
-                <span className="text-2xl">✅</span>
-                <span>Join a virtual trucking company</span>
+                <span className="text-2xl">&#128230;</span>
+                <span>Join a virtual trucking company and community</span>
               </div>
               <div className="flex items-center gap-3 text-gray-300">
-                <span className="text-2xl">✅</span>
-                <span>Compete on leaderboards</span>
+                <span className="text-2xl">&#128666;</span>
+                <span>Compete on leaderboards and events</span>
               </div>
               <div className="flex items-center gap-3 text-gray-300">
-                <span className="text-2xl">✅</span>
+                <span className="text-2xl">&#127942;</span>
                 <span>Connect with drivers worldwide</span>
               </div>
             </motion.div>
           </div>
         </div>
-
-        {/* RIGHT SIDE - Register Form */}
-        <div className="w-full lg:w-1/2 flex items-center justify-center bg-[#16162a] p-8 relative overflow-y-auto">
+        <div className="auth-panel w-full lg:w-1/2 flex items-center justify-center bg-[#16162a] p-8 relative overflow-y-auto">
           {/* Background glow for mobile */}
           <div className="lg:hidden absolute inset-0 bg-gradient-to-br from-[#2a1357]/20 to-transparent" />
           
@@ -147,7 +160,12 @@ export default function RegisterLayout() {
           >
             {/* Logo for mobile */}
             <div className="lg:hidden text-center mb-8">
-              <div className="text-6xl mb-4">🚛</div>
+              <HolidayIcon
+                defaultSrc={Icon}
+                holidaySrc={HolidayLogo}
+                alt="Enigma Hub"
+                className="mx-auto w-16 h-16 mb-4 drop-shadow-xl"
+              />
               <h1 className="text-3xl font-bold bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] bg-clip-text text-transparent">
                 ENIGMA HUB
               </h1>
@@ -251,7 +269,7 @@ export default function RegisterLayout() {
                 whileTap={{ scale: 0.98 }}
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#6A0DAD]/50 mt-6"
+                className="auth-btn w-full bg-gradient-to-r from-[#6A0DAD] to-[#f8cc00] text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-[#6A0DAD]/50 mt-6"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -287,3 +305,9 @@ export default function RegisterLayout() {
     </div>
   );
 }
+
+
+
+
+
+

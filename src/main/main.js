@@ -718,6 +718,15 @@ ipcMain.on('toggle-devtools', () => {
   }
 });
 
+// Achievements -> forward toast to overlay window
+ipcMain.on('achievement:toast', (_event, payload) => {
+  try {
+    sendToOverlay('achievement:unlock', payload);
+  } catch (err) {
+    console.error('[Overlay] Failed to forward achievement toast:', err?.message);
+  }
+});
+
 // ✅ Overlay toggle
 ipcMain.handle('toggle-overlay', () => {
   toggleOverlay();
@@ -1458,3 +1467,5 @@ process.on('unhandledRejection', (error) => {
 });
 
 console.log('[App] ✅ Main process initialized');
+
+

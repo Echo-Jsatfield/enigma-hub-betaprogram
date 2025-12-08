@@ -189,7 +189,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-6 space-y-6 min-h-full bg-gradient-to-b from-[#12051a] to-[#1a0927]">
+    <div className="settings-page p-6 space-y-6 min-h-full bg-gradient-to-b from-[#12051a] to-[#1a0927]">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div
@@ -217,7 +217,7 @@ export default function Settings() {
         {/* Sidebar Tabs */}
         <div className="lg:col-span-1">
           <div
-            className="rounded-2xl p-2 shadow-lg"
+            className="card settings-nav rounded-2xl p-2 shadow-lg"
             style={{
               backgroundColor: "#14071d",
               border: "1px solid #2a0c3f",
@@ -263,7 +263,7 @@ export default function Settings() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
-            className="rounded-2xl p-6 shadow-lg"
+            className="card settings-panel rounded-2xl p-6 shadow-lg"
             style={{
               backgroundColor: "#14071d",
               border: "1px solid #2a0c3f",
@@ -542,7 +542,7 @@ function SystemStatusTab() {
 function Section({ title, children }) {
   return (
     <div
-      className="p-4 rounded-2xl space-y-3"
+      className="card settings-section p-4 rounded-2xl space-y-3"
       style={{
         backgroundColor: "#11061a",
         border: "1px solid #2a0c3f",

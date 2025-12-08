@@ -23,11 +23,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
+import { useRoleDefinitions } from "../../hooks/useRoleDefinitions";
 import api from "../../services/api";
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const { showAlert } = useModal();
+  const { roles: roleDefs } = useRoleDefinitions();
 
   const [stats, setStats] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
@@ -184,6 +186,76 @@ export default function Profile() {
     return ((stats.total_completed || 0) / stats.total_jobs) * 100;
   }, [stats]);
 
+  // Role badge styling map
+  const roleStyles = useMemo(
+    () => ({
+      owner: {
+        bg: "bg-red-500/25",
+        border: "border-red-400/60",
+        text: "text-white",
+        icon: Shield,
+      },
+      admin: {
+        bg: "bg-amber-500/25",
+        border: "border-amber-300/60",
+        text: "text-white",
+        icon: Shield,
+      },
+      "board member": {
+        bg: "bg-red-500/25",
+        border: "border-red-300/60",
+        text: "text-white",
+        icon: Shield,
+      },
+      moderator: {
+        bg: "bg-emerald-500/15",
+        border: "border-emerald-500/50",
+        text: "text-emerald-100",
+        icon: Shield,
+      },
+      driver: {
+        bg: "bg-purple-500/25",
+        border: "border-purple-200/70",
+        text: "text-white",
+        icon: Activity,
+      },
+      default: {
+        bg: "bg-amber-500/15",
+        border: "border-amber-400/50",
+        text: "text-white",
+        icon: Shield,
+      },
+    }),
+    []
+  );
+
+  const renderRoleBadges = (roles = []) => {
+    const safeRoles = roles.length ? roles : ["driver"];
+    return safeRoles.map((role) => {
+      const key = role.toLowerCase();
+      const style = roleStyles[key] || roleStyles.default;
+      const def = roleDefs.find((r) => (r.name || "").toLowerCase() === key);
+      const Icon = style.icon;
+      const dynamicStyle = def?.color
+        ? {
+            backgroundColor: `${def.color}33`,
+            borderColor: `${def.color}66`,
+            color: "#fff",
+          }
+        : undefined;
+      return (
+        <span
+          key={role}
+          className={`role-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${style.bg} ${style.border} ${style.text}`}
+          style={dynamicStyle}
+        >
+          <Icon className="h-3 w-3" />
+          {role}
+        </span>
+      );
+    });
+  };
+
   const safetyScore = useMemo(() => {
     if (!stats?.total_jobs) return 100;
     const flagged = stats.total_flagged || 0;
@@ -214,12 +286,12 @@ export default function Profile() {
   const safeStats = stats || {};
 
   return (
-    <div className="p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
+    <div className="profile-page p-6 space-y-6 bg-gradient-to-b from-[#12051a] via-[#1b1024] to-[#12051a] min-h-full">
       {/* HEADER */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border text-white shadow-xl bg-gradient-to-r"
+        className="card profile-hero relative overflow-hidden rounded-2xl border text-white shadow-xl bg-gradient-to-r"
         style={{
           borderColor: "#2c1e3a",
           backgroundImage:
@@ -273,28 +345,13 @@ export default function Profile() {
                 <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
                   {user?.username}
                 </h1>
-                {user?.roles?.includes("admin") && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-amber-400/15 border border-amber-400/50 text-amber-200">
-                    <Shield className="h-3 w-3" />
-                    Admin
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide bg-sky-500/15 border border-sky-400/50 text-sky-200">
-                  <Activity className="h-3 w-3" />
-                  Driver
-                </span>
+                {renderRoleBadges(user?.roles)}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-sm text-purple-100/90">
                 <div className="flex items-center gap-1.5">
                   <Mail className="w-4 h-4 opacity-80" />
                   <span>{user?.email || "No email"}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Shield className="w-4 h-4 opacity-80" />
-                  <span className="capitalize">
-                    {user?.roles?.join(", ") || "Driver"}
-                  </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 opacity-80" />
@@ -477,8 +534,8 @@ export default function Profile() {
             <motion.div
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-2xl p-5 border shadow-lg"
+            transition={{ delay: 0.1 }}
+            className="card rounded-2xl p-5 border shadow-lg"
               style={{
                 backgroundColor: "#1b1024",
                 borderColor: "#2c1e3a",
@@ -554,7 +611,7 @@ export default function Profile() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="rounded-2xl p-5 border shadow-lg"
+              className="card profile-job-breakdown rounded-2xl p-5 border shadow-lg"
               style={{
                 backgroundColor: "#1b1024",
                 borderColor: "#2c1e3a",
@@ -595,7 +652,7 @@ export default function Profile() {
               initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.2 }}
-              className="rounded-2xl p-5 border shadow-lg"
+              className="card profile-safety rounded-2xl p-5 border shadow-lg"
               style={{
                 backgroundColor: "#1b1024",
                 borderColor: "#2c1e3a",
@@ -643,7 +700,7 @@ export default function Profile() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 }}
-            className="rounded-2xl p-5 border shadow-lg"
+            className="card profile-achievements rounded-2xl p-5 border shadow-lg"
             style={{
               backgroundColor: "#1b1024",
               borderColor: "#2c1e3a",
@@ -683,7 +740,7 @@ export default function Profile() {
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
-            className="rounded-2xl p-5 border shadow-lg"
+            className="card rounded-2xl p-5 border shadow-lg"
             style={{
               backgroundColor: "#1b1024",
               borderColor: "#2c1e3a",
@@ -731,7 +788,7 @@ export default function Profile() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="rounded-2xl p-6 border shadow-xl"
+        className="card rounded-2xl p-6 border shadow-xl"
         style={{
           backgroundColor: "#1b1024",
           borderColor: "#2c1e3a",
@@ -757,7 +814,7 @@ export default function Profile() {
               <div>
                 <button
                   onClick={() => setEts2Expanded(!ets2Expanded)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
+                  className="card jobs-toggle w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
                   style={{
                     backgroundColor: "#12051a",
                     borderColor: "#2c1e3a",
@@ -803,7 +860,7 @@ export default function Profile() {
               <div>
                 <button
                   onClick={() => setAtsExpanded(!atsExpanded)}
-                  className="w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
+                  className="card jobs-toggle w-full flex items-center justify-between p-3 rounded-lg border transition-colors hover:bg-[#12051a]/60"
                   style={{
                     backgroundColor: "#12051a",
                     borderColor: "#2c1e3a",
@@ -862,7 +919,7 @@ export default function Profile() {
 function HeaderStat({ label, value, icon: Icon }) {
   return (
     <div
-      className="rounded-xl px-3 py-2.5 border shadow-sm"
+      className="card profile-kpi rounded-xl px-3 py-2.5 border shadow-sm"
       style={{
         backgroundColor: "#12051a",
         borderColor: "#2c1e3a",
@@ -883,7 +940,7 @@ function HeaderStat({ label, value, icon: Icon }) {
 function JobCard({ job, getRaceMilesColor, getModBadge }) {
   return (
     <div
-      className="p-4 rounded-xl border transition-colors"
+      className="card job-row p-4 rounded-xl border transition-colors"
       style={{
         backgroundColor: "#12051a",
         borderColor: "#2c1e3a",
@@ -1024,7 +1081,7 @@ function AchievementCard({ achievement }) {
 
   return (
     <div
-      className={`rounded-xl border px-3 py-3 flex gap-3 items-start shadow-sm shadow-black/60 ${rarityStyles}`}
+      className={`card rounded-xl border px-3 py-3 flex gap-3 items-start shadow-sm shadow-black/60 ${rarityStyles}`}
     >
       <div className="mt-0.5">
         <div className="h-8 w-8 rounded-lg bg-[#12051a] flex items-center justify-center border border-[#2c1e3a]">
